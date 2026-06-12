@@ -1,53 +1,38 @@
-.PHONY: all build build-client build-server build-admin proto test clean run-server run-client
+.PHONY: build build-server build-client build-admin proto test lint clean
 
-# Go 编译参数
-GO           := go
-GOFLAGS      := -trimpath -ldflags="-s -w"
-OUT_DIR      := build
-
-# 默认目标
-all: build
-
-# 编译所有
+# Build all binaries
 build: build-server build-client build-admin
 
 build-server:
-	@mkdir -p $(OUT_DIR)
-	$(GO) build $(GOFLAGS) -o $(OUT_DIR)/teamx-server ./cmd/server
+	cd cmd/server && go build -o ../../bin/server .
 
 build-client:
-	@mkdir -p $(OUT_DIR)
-	$(GO) build $(GOFLAGS) -o $(OUT_DIR)/teamx-client ./cmd/client
+	cd cmd/client && go build -o ../../bin/client .
 
 build-admin:
-	@mkdir -p $(OUT_DIR)
-	$(GO) build $(GOFLAGS) -o $(OUT_DIR)/teamx-admin ./cmd/admin
+	cd cmd/admin && go build -o ../../bin/admin .
 
-# 生成 protobuf 代码
+# Cross-platform builds
+build-all:
+	GOOS=linux GOARCH=amd64 go build -o bin/server-linux-amd64 ./cmd/server/
+	GOOS=linux GOARCH=amd64 go build -o bin/client-linux-amd64 ./cmd/client/
+	GOOS=windows GOARCH=amd64 go build -o bin/server-windows-amd64.exe ./cmd/server/
+	GOOS=windows GOARCH=amd64 go build -o bin/client-windows-amd64.exe ./cmd/client/
+	GOOS=darwin GOARCH=amd64 go build -o bin/server-darwin-amd64 ./cmd/server/
+	GOOS=darwin GOARCH=amd64 go build -o bin/client-darwin-amd64 ./cmd/client/
+
+# Generate protobuf code
 proto:
 	protoc --go_out=. --go-grpc_out=. internal/proto/*.proto
 
-# 运行
-run-server: build-server
-	./$(OUT_DIR)/teamx-server
-
-run-client: build-client
-	./$(OUT_DIR)/teamx-client
-
-# 测试
+# Run tests
 test:
-	$(GO) test -v -race -count=1 ./...
+	go test -v -race ./...
 
-# 代码检查
+# Run linter
 lint:
 	golangci-lint run ./...
 
-# 清理
+# Clean build artifacts
 clean:
-	rm -rf $(OUT_DIR)
-
-# 跨平台编译（Phase 10 用）
-cross-build:
-	GOOS=linux   GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(OUT_DIR)/teamx-client-linux-amd64   ./cmd/client
-	GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(OUT_DIR)/teamx-client-windows-amd64.exe ./cmd/client
-	GOOS=darwin  GOARCH=amd64 $(GO) build $(GOFLAGS) -o $(OUT_DIR)/teamx-client-darwin-amd64  ./cmd/client
+	rm -rf bin/

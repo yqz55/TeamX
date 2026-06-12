@@ -1,9 +1,19 @@
-# 编译输出
-/build/
+# Binaries
+bin/
 *.exe
+*.exe~
 *.dll
 *.so
 *.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Dependency directories
+vendor/
 
 # IDE
 .idea/
@@ -16,23 +26,9 @@
 .DS_Store
 Thumbs.db
 
-# Go
-*.test
-*.out
-vendor/
-
-# 插件运行时目录
-plugins/loaded/
-
-# 运行时数据
-/data/
-*.db
-*.sqlite3
-
-# 临时文件
-/tmp/
-*.log
-
-# 环境配置（含敏感信息）
+# Environment
 .env
 .env.local
+
+# Build artifacts
+/tmp/

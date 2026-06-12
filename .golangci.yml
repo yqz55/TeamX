@@ -14,9 +14,20 @@ linters:
     - goimports
     - misspell
     - unconvert
-    - prealloc
+    - unparam
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: teamx
+  misspell:
+    locale: US
 
 issues:
+  exclude-dirs:
+    - vendor
+    - bin
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0

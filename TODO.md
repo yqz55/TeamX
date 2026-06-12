@@ -35,14 +35,14 @@
 - [ ] 配置 `.gitignore`、`.golangci.yml`
 
 ### 0.2 通信协议定义（Proto）
-- [ ] 设计核心 Protobuf 消息结构：
-  - `Handshake`（客户端注册/认证）
-  - `Heartbeat`（心跳保活）
-  - `ReportRequest/Response`（信息上报）
-  - `CommandRequest/Response`（命令下发与执行）
-  - `FileChunk`（文件传输分片）
-- [ ] 编译 `.proto` → Go 代码
-- [ ] 编写协议文档（字段说明、错误码定义）
+- [x] 设计核心 Protobuf 消息结构：
+  - `Handshake`（客户端注册/认证）→ HandshakeRequest / HandshakeResponse
+  - `Heartbeat`（心跳保活）→ Heartbeat / HeartbeatAck
+  - `ReportRequest/Response`（信息上报）→ ReportRequest (oneof: HardwareInfo, SoftwareInfo, UserInfo, ProcessInfo, PeripheralInfo)
+  - `CommandRequest/Response`（命令下发与执行）→ Command / CommandResult
+  - `FileChunk`（文件传输分片）→ FileChunk / FileTransferRequest / FileTransferResponse / FileData
+- [x] 编译 `.proto` → Go 代码（teamx.pb.go + teamx_grpc.pb.go）
+- [x] 编写协议文档（字段说明、错误码定义）→ docs/protocol.md
 
 ---
 

@@ -23,7 +23,7 @@ build-all:
 
 # Generate protobuf code
 proto:
-	protoc --go_out=. --go-grpc_out=. internal/proto/*.proto
+	protoc --go_out=. --go_opt=module=teamx --go-grpc_out=. --go-grpc_opt=module=teamx internal/proto/*.proto
 
 # Run tests
 test:

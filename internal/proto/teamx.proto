@@ -1,0 +1,304 @@
+syntax = "proto3";
+
+package teamx.proto;
+
+option go_package = "teamx/internal/proto";
+
+// =============================================================================
+// TeamX — Terminal Management System Protocol
+// =============================================================================
+//
+// RPC overview:
+//   Register       Unary            — 客户端注册/认证（一次性握手）
+//   Channel        Bidi Stream      — 主通道：心跳 + 信息上报 + 命令下发 + 命令结果
+//   TransferFile   Bidi Stream      — 文件分片传输（Phase 7）
+//
+// All messages within streams carry a seq number for dedup / ordering.
+
+// ---- Service ---------------------------------------------------------------
+
+service TeamX {
+    // Register performs a one-shot handshake: client → server.
+    // The server returns a unique client_id the client must use thereafter.
+    rpc Register(HandshakeRequest) returns (HandshakeResponse);
+
+    // Channel is the main bidirectional communication pipe.
+    // Once registered, the client opens this stream and keeps it alive.
+    //    Client → Server : Heartbeat / ReportRequest / CommandResult
+    //    Server → Client : HeartbeatAck  / Command
+    rpc Channel(stream ClientMessage) returns (stream ServerMessage);
+
+    // TransferFile handles file upload / download with chunked framing.
+    // Phase 7 才启用，Phase 0.2 先定义协议。
+    rpc TransferFile(stream FileChunk) returns (stream FileChunk);
+}
+
+// =============================================================================
+// Register (Unary)
+// =============================================================================
+
+message HandshakeRequest {
+    string hostname           = 1;  // 主机名
+    string os                 = 2;  // 操作系统: linux / windows / darwin
+    string os_version         = 3;  // 操作系统版本
+    string kernel_version     = 4;  // 内核版本
+    string client_version     = 5;  // TeamX client 版本号
+    repeated string mac_addrs = 6;  // MAC 地址列表（硬件指纹）
+    repeated string ip_addrs  = 7;  // IP 地址列表
+}
+
+message HandshakeResponse {
+    bool   ok          = 1;  // true = 注册成功; false = 被拒绝（黑名单）
+    string client_id   = 2;  // server 分配的唯一 ID (UUID v4)
+    string server_time = 3;  // 服务器当前时间 (RFC 3339), 用于客户端校时
+    string message     = 4;  // 拒绝原因或欢迎信息
+}
+
+// =============================================================================
+// Channel (Bidi Stream)  — 所有消息带 seq
+// =============================================================================
+
+message ClientMessage {
+    uint64 seq = 1;  // 单调递增序号, 服务端用于去重和乱序检测
+
+    oneof payload {
+        Heartbeat      heartbeat      = 2;
+        ReportRequest  report_request = 3;
+        CommandResult  command_result = 4;
+    }
+}
+
+message ServerMessage {
+    uint64 seq = 1;  // 单调递增序号
+
+    oneof payload {
+        HeartbeatAck heartbeat_ack = 2;
+        Command      command       = 3;
+    }
+}
+
+// ---- Heartbeat -------------------------------------------------------------
+
+message Heartbeat {
+    int64 timestamp_unix = 1;  // 客户端发送时间戳 (unix seconds)
+    float cpu_percent    = 2;  // CPU 使用率 (%)  — 轻量健康指标
+    float mem_percent    = 3;  // 内存使用率 (%)   — 轻量健康指标
+    int32 goroutines     = 4;  // client 自身 goroutine 数量
+}
+
+message HeartbeatAck {
+    int64 server_time_unix = 1;  // 服务器收到时间戳
+}
+
+// ---- Report ----------------------------------------------------------------
+
+message ReportRequest {
+    string report_id = 1;  // 唯一上报 ID (UUID v4), 用于去重
+
+    oneof type {
+        HardwareInfo   hardware   = 10;
+        SoftwareInfo   software   = 11;
+        UserInfo       user       = 12;
+        ProcessInfo    process    = 13;
+        PeripheralInfo peripheral = 14;
+    }
+}
+
+// -- Hardware ----------------------------------------------------------------
+
+message HardwareInfo {
+    CPUInfo      cpu      = 1;
+    MemoryInfo   memory   = 2;
+    repeated DiskInfo  disks    = 3;
+    repeated NetInfo   nets     = 4;
+    BIOSInfo     bios     = 5;  // optional
+    MotherboardInfo motherboard = 6; // optional
+}
+
+message CPUInfo {
+    string model       = 1;  // e.g. "Intel Core i7-12700H"
+    int32  cores       = 2;  // 物理核心数
+    int32  threads     = 3;  // 逻辑线程数
+    string architecture = 4; // amd64 / arm64
+}
+
+message MemoryInfo {
+    uint64 total_bytes     = 1;
+    uint64 available_bytes = 2;
+    uint64 used_bytes      = 3;
+}
+
+message DiskInfo {
+    string device      = 1;  // e.g. "C:", "/dev/sda1"
+    string mount_point = 2;
+    string fs_type     = 3;  // NTFS / ext4 / APFS
+    uint64 total_bytes = 4;
+    uint64 used_bytes  = 5;
+    uint64 free_bytes  = 6;
+}
+
+message NetInfo {
+    string name      = 1;  // e.g. "eth0", "WLAN"
+    string mac_addr  = 2;
+    repeated string ip_addrs = 3;
+    bool   is_loopback = 4;
+}
+
+message BIOSInfo {
+    string vendor  = 1;
+    string version = 2;
+    string release_date = 3;
+}
+
+message MotherboardInfo {
+    string manufacturer = 1;
+    string product      = 2;
+    string serial       = 3;
+}
+
+// -- Software ----------------------------------------------------------------
+
+message SoftwareInfo {
+    repeated SoftwareItem items = 1;
+    int32 total_count          = 2;  // 总数（支持分批上报）
+}
+
+message SoftwareItem {
+    string name       = 1;
+    string version    = 2;
+    string publisher  = 3;  // 发行商
+    string install_date = 4;
+}
+
+// -- User --------------------------------------------------------------------
+
+message UserInfo {
+    repeated UserAccount users         = 1;
+    repeated string       current_logins = 2;  // 当前登录用户名
+}
+
+message UserAccount {
+    string username    = 1;
+    string uid         = 2;  // user SID (Windows) or uid (Linux)
+    string group       = 3;  // 主要组
+    string home_dir    = 4;
+    string shell       = 5;  // 默认 shell
+    bool   is_admin    = 6;
+    bool   is_disabled = 7;
+}
+
+// -- Process -----------------------------------------------------------------
+
+message ProcessInfo {
+    repeated ProcessItem items = 1;
+    int32 total_count         = 2;
+}
+
+message ProcessItem {
+    int32  pid        = 1;
+    int32  ppid       = 2;
+    string name       = 3;
+    string user       = 4;
+    float  cpu_percent = 5;
+    uint64 mem_bytes  = 6;
+    string status     = 7;  // running / sleeping / stopped / zombie
+    string cmdline    = 8;  // 完整命令行
+}
+
+// -- Peripheral --------------------------------------------------------------
+
+message PeripheralInfo {
+    repeated USBDevice usb_devices = 1;
+    repeated Printer    printers    = 2;  // optional
+}
+
+message USBDevice {
+    string name        = 1;
+    string vendor_id   = 2;
+    string product_id  = 3;
+    string serial      = 4;  // optional
+}
+
+message Printer {
+    string name     = 1;
+    string driver   = 2;
+    string port     = 3;
+    bool   is_default = 4;
+}
+
+// ---- Command ---------------------------------------------------------------
+
+message Command {
+    string command_id  = 1;  // 唯一命令 ID (UUID v4)
+    string type        = 2;  // 命令类型枚举: CollectNow | RunScript | KillProcess | UpdateConfig | Upgrade | Restart | Shutdown
+    map<string, string> params = 3;  // 灵活参数，不同命令类型自由组合
+    int64 timeout_sec  = 4;  // 超时时间 (秒), 0 = 无超时
+    int64 created_at_unix = 5;  // 命令创建时间
+}
+
+message CommandResult {
+    string command_id    = 1;
+    string status        = 2;  // Executing | Completed | Failed | Timeout
+    int32  exit_code     = 3;
+    string stdout        = 4;  // 标准输出
+    string stderr        = 5;  // 标准错误
+    int64  started_at_unix  = 6;
+    int64  finished_at_unix = 7;
+    string error_message = 8;  // 失败原因（如有）
+}
+
+// =============================================================================
+// TransferFile (Bidi Stream)  — Phase 7
+// =============================================================================
+
+message FileChunk {
+    uint64 seq = 1;
+
+    oneof payload {
+        FileTransferRequest  transfer_request  = 2;
+        FileTransferResponse transfer_response = 3;
+        FileData             file_data         = 4;
+    }
+}
+
+message FileTransferRequest {
+    // 第一帧：描述传输意图
+    string transfer_id = 1;  // 唯一传输 ID
+    string path        = 2;  // 远程文件路径
+    int64  size_bytes  = 3;  // 文件大小 (upload 时必填; download 时 server 返回)
+    string direction   = 4;  // "upload" or "download"
+    int32  chunk_size  = 5;  // 协商分片大小, 默认 65536 (64 KiB)
+}
+
+message FileTransferResponse {
+    string transfer_id = 1;
+    bool   accepted    = 2;  // server 是否接受传输
+    string message     = 3;  // 拒绝原因
+    int64  resume_offset = 4;  // 断点续传偏移量 (bytes)
+}
+
+message FileData {
+    string transfer_id = 1;
+    int64  offset      = 2;  // 此分片在文件中的偏移量
+    int32  size        = 3;  // 此分片大小 (最后一个分片可能小于 chunk_size)
+    bytes  data        = 4;  // 分片数据
+    bool   is_last     = 5;  // 是否最后一个分片
+    string checksum    = 6;  // SHA256 of this chunk (optional, for integrity)
+}
+
+// =============================================================================
+// Error codes — transmitted in gRPC status metadata
+// =============================================================================
+//
+// 0       OK                      成功
+// 1000    ERR_HANDSHAKE_DENIED    客户端被黑名单拒绝
+// 1001    ERR_CLIENT_NOT_FOUND    指定 client_id 不存在
+// 1002    ERR_CLIENT_OFFLINE      目标客户端离线
+// 2000    ERR_COMMAND_TIMEOUT     命令执行超时
+// 2001    ERR_COMMAND_UNKNOWN     未知命令类型
+// 3000    ERR_FILE_NOT_FOUND      文件不存在
+// 3001    ERR_FILE_PERMISSION     文件权限不足
+// 3002    ERR_PATH_TRAVERSAL      检测到目录穿越攻击
+// 4000    ERR_TRANSFER_MISMATCH   transfer_id 不一致
+// 4001    ERR_TRANSFER_CHECKSUM   分片校验失败
+// 5000    ERR_INTERNAL            内部错误

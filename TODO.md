@@ -51,25 +51,26 @@
 > **目标**: 一个 Go TCP/gRPC server 能接收 client 连接，client 能发心跳，server 能回响应。
 
 ### 1.1 服务端基础
-- [ ] 实现 gRPC server 启动与端口监听
-- [ ] 实现客户端连接管理器（`ConnectionManager`）：
+- [x] 实现 gRPC server 启动与端口监听
+- [x] 实现客户端连接管理器（`ConnectionManager`）：
   - 维护 `map[clientID]*ClientConn`
   - 提供 `Register` / `Unregister` / `Get` 方法
-  - 线程安全（`sync.RWMutex`）
+  - 线程安全（`sync.RWMutex`）→ `internal/server/connection.go`
 
 ### 1.2 客户端基础
-- [ ] 实现 gRPC client 拨号连接
-- [ ] 实现自动重连（指数退避）
-- [ ] 客户端注册流程：连接 → 发送 `Handshake`（hostname, OS, clientVersion）→ 获取 `clientID`
+- [x] 实现 gRPC client 拨号连接
+- [x] 实现自动重连（指数退避: 1s→2s→4s→...→60s, ±25% jitter）
+- [x] 客户端注册流程：连接 → 发送 `Handshake`（hostname, OS, clientVersion）→ 获取 `clientID`
 
 ### 1.3 心跳机制
-- [ ] 客户端定时发送 `Heartbeat`（间隔 10s）
-- [ ] 服务端定期检查心跳超时（超过 30s 标记离线）
-- [ ] 管理界面可看到终端在线/离线状态
+- [x] 客户端定时发送 `Heartbeat`（间隔 10s）
+- [x] 服务端定期检查心跳超时（超过 30s 标记离线）
+- [ ] 管理界面可看到终端在线/离线状态 → Phase 4
 
 ### 1.4 验证
-- [ ] 手动启动 server、1 个 client，确认注册 + 心跳正常
-- [ ] 模拟 client 断网，确认超时离线检测正常
+- [x] 手动启动 server、1 个 client，确认注册 + 心跳正常（Windows + Linux 双平台）
+- [x] 模拟 client 断网（Ctrl+C），确认超时离线检测正常
+- [x] 跨主机验证：Win Server + Linux VM Client 通过
 
 ---
 

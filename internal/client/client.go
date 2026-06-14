@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	"teamx/internal/client/collector"
 	"teamx/internal/proto"
 )
 
@@ -20,6 +21,7 @@ import (
 type Config struct {
 	ServerAddr        string
 	HeartbeatInterval time.Duration
+	ReportInterval    time.Duration
 	ReconnectInitial  time.Duration
 	ReconnectMax      time.Duration
 	ClientVersion     string
@@ -30,6 +32,7 @@ func DefaultConfig() Config {
 	return Config{
 		ServerAddr:        "localhost:50051",
 		HeartbeatInterval: 10 * time.Second,
+		ReportInterval:    300 * time.Second,
 		ReconnectInitial:  1 * time.Second,
 		ReconnectMax:      60 * time.Second,
 		ClientVersion:     "0.2.0",
@@ -46,13 +49,21 @@ type Client struct {
 	clientID string
 	seq      uint64
 
+	col   *collector.Collector   // hardware info collector
+	cache *collector.ReportCache // dedup cache for hardware reports
+
 	// Protects seq.
 	mu sync.Mutex
 }
 
 // NewClient creates a Client with the given config.
 func NewClient(cfg Config) *Client {
-	return &Client{cfg: cfg, info: Collect()}
+	return &Client{
+		cfg:   cfg,
+		info:  Collect(),
+		col:   &collector.Collector{},
+		cache: &collector.ReportCache{},
+	}
 }
 
 // SysInfo returns the client's system information snapshot.
@@ -146,13 +157,19 @@ func (c *Client) connect(parentCtx context.Context) error {
 	hbDone := make(chan struct{})
 	go c.heartbeatLoop(sessCtx, stream, hbDone)
 
+	// ---- Report goroutine ---------------------------------------------------
+
+	reportDone := make(chan struct{})
+	go c.reportLoop(sessCtx, stream, reportDone)
+
 	// ---- Recv loop ----------------------------------------------------------
 
 	err = c.recvLoop(sessCtx, stream)
 
-	// Stream broken — cancel heartbeat and wait for it to exit.
+	// Stream broken — cancel goroutines and wait for them to exit.
 	cancel()
 	<-hbDone
+	<-reportDone
 	return err
 }
 

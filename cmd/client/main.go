@@ -15,6 +15,7 @@ import (
 func main() {
 	serverAddr := flag.String("server", "localhost:50051", "TeamX Server address (host:port)")
 	heartbeatInterval := flag.Duration("heartbeat", 10*time.Second, "Heartbeat interval")
+	reportInterval := flag.Duration("report-interval", 300*time.Second, "Hardware report interval (0 = disabled)")
 	reconnectInitial := flag.Duration("reconnect-initial", 1*time.Second, "Initial reconnect delay")
 	reconnectMax := flag.Duration("reconnect-max", 60*time.Second, "Maximum reconnect delay")
 	clientVersion := flag.String("version", "0.2.0", "Client version string")
@@ -23,6 +24,7 @@ func main() {
 	cfg := client.Config{
 		ServerAddr:        *serverAddr,
 		HeartbeatInterval: *heartbeatInterval,
+		ReportInterval:    *reportInterval,
 		ReconnectInitial:  *reconnectInitial,
 		ReconnectMax:      *reconnectMax,
 		ClientVersion:     *clientVersion,
@@ -45,6 +47,7 @@ func main() {
 	info := c.SysInfo()
 	log.Printf("TeamX Client v%s starting — server=%s", cfg.ClientVersion, cfg.ServerAddr)
 	log.Printf("  hostname=%s os=%s", info.Hostname, info.OS)
+	log.Printf("  heartbeat=%v report=%v", cfg.HeartbeatInterval, cfg.ReportInterval)
 
 	if err := c.Run(ctx); err != nil && err != context.Canceled {
 		log.Fatalf("client exited: %v", err)

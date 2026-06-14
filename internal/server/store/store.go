@@ -47,10 +47,10 @@ type Store interface {
 	// or nil if none exists.
 	GetLatestHardware(clientID string) (*proto.HardwareInfo, error)
 
-	// ListHardwareReports returns hardware reports for a client within a time
+	// ListHardwareReports returns hardware snapshots for a client within a time
 	// range (inclusive). since/until are RFC3339 strings. Pass empty string
 	// for unbounded. limit caps the row count; 0 means default (100).
-	ListHardwareReports(clientID string, since, until string, limit int) ([]*proto.HardwareInfo, error)
+	ListHardwareReports(clientID string, since, until string, limit int) ([]*HardwareSnapshot, error)
 }
 
 // Terminal is the query result for a single terminal row.
@@ -66,6 +66,13 @@ type Terminal struct {
 	LastHeartbeat string
 	LastSeenAt    string
 	FirstSeenAt   string
+}
+
+// HardwareSnapshot pairs a HardwareInfo proto with its report metadata.
+type HardwareSnapshot struct {
+	ReportID  string
+	CreatedAt string
+	Info      *proto.HardwareInfo
 }
 
 // ---- SQLite implementation ------------------------------------------------
@@ -87,10 +94,11 @@ func OpenSQLite(path string) (Store, error) {
 		return nil, fmt.Errorf("store: open: %w", err)
 	}
 
-	// SQLite serialises writes; one open conn avoids "database is locked" races
-	// while still allowing concurrent reads in WAL mode.
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	// Allow 4 open conns: WAL-mode SQLite handles concurrent reads + writes
+	// safely, and we need more than one when a query result is still being
+	// iterated and sub-queries need a fresh connection.
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(0) // SQLite connections are not meant to be recycled
 
 	// Verify the connection is alive.

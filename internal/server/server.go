@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"time"
@@ -162,6 +163,111 @@ func (s *TeamXServer) handleReport(clientID string, report *proto.ReportRequest)
 func (s *TeamXServer) handleCommandResult(clientID string, result *proto.CommandResult) {
 	// Phase 5 will process command results. For now, just log.
 	log.Printf("[command] result: client=%s command_id=%s status=%s", clientID, result.GetCommandId(), result.GetStatus())
+}
+
+// ---- Admin / Query RPCs (Phase 3.2) -----------------------------------------
+
+// ListTerminals returns a paginated list of terminals with optional online
+// filter. It delegates filtering and pagination to the Store.
+func (s *TeamXServer) ListTerminals(ctx context.Context, req *proto.ListTerminalsRequest) (*proto.ListTerminalsResponse, error) {
+	var online *bool
+	if req.OnlineFilter != nil {
+		online = req.OnlineFilter
+	}
+
+	pageSize := int(req.GetPageSize())
+	if pageSize <= 0 || pageSize > 500 {
+		pageSize = 50
+	}
+	page := int(req.GetPage())
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * pageSize
+
+	terminals, total, err := s.store.ListTerminals(online, offset, pageSize)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list terminals failed: %v", err)
+	}
+
+	summaries := make([]*proto.TerminalSummary, len(terminals))
+	for i, t := range terminals {
+		summaries[i] = &proto.TerminalSummary{
+			ClientId:      t.ClientID,
+			Hostname:      t.Hostname,
+			Os:            t.OS,
+			OsVersion:     t.OSVersion,
+			ClientVersion: t.ClientVersion,
+			Online:        t.Online,
+			LastHeartbeat: t.LastHeartbeat,
+			LastSeenAt:    t.LastSeenAt,
+		}
+	}
+
+	return &proto.ListTerminalsResponse{
+		Terminals:  summaries,
+		TotalCount: int32(total),
+	}, nil
+}
+
+// GetTerminal returns terminal metadata plus the latest hardware snapshot.
+func (s *TeamXServer) GetTerminal(ctx context.Context, req *proto.GetTerminalRequest) (*proto.GetTerminalResponse, error) {
+	t, err := s.store.GetTerminal(req.GetClientId())
+	if err == sql.ErrNoRows {
+		return nil, status.Errorf(codes.NotFound, "terminal not found: %s", req.GetClientId())
+	}
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "get terminal failed: %v", err)
+	}
+
+	hw, err := s.store.GetLatestHardware(req.GetClientId())
+	if err != nil {
+		log.Printf("[query] get latest hardware failed: client=%s err=%v", req.GetClientId(), err)
+		// Hardware is best-effort; return the summary even if hardware fails.
+	}
+
+	return &proto.GetTerminalResponse{
+		Summary: &proto.TerminalSummary{
+			ClientId:      t.ClientID,
+			Hostname:      t.Hostname,
+			Os:            t.OS,
+			OsVersion:     t.OSVersion,
+			ClientVersion: t.ClientVersion,
+			Online:        t.Online,
+			LastHeartbeat: t.LastHeartbeat,
+			LastSeenAt:    t.LastSeenAt,
+		},
+		LatestHardware: hw,
+	}, nil
+}
+
+// GetTerminalHistory returns hardware snapshots for a terminal within an
+// optional time range.
+func (s *TeamXServer) GetTerminalHistory(ctx context.Context, req *proto.GetTerminalHistoryRequest) (*proto.GetTerminalHistoryResponse, error) {
+	limit := int(req.GetLimit())
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+
+	snaps, err := s.store.ListHardwareReports(
+		req.GetClientId(), req.GetSince(), req.GetUntil(), limit)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list hardware reports failed: %v", err)
+	}
+
+	snapshots := make([]*proto.HardwareSnapshot, len(snaps))
+	for i, s := range snaps {
+		snapshots[i] = &proto.HardwareSnapshot{
+			ReportId:  s.ReportID,
+			CreatedAt: s.CreatedAt,
+			Info:      s.Info,
+		}
+	}
+
+	return &proto.GetTerminalHistoryResponse{
+		ClientId:  req.GetClientId(),
+		Snapshots: snapshots,
+	}, nil
 }
 
 // ---- helpers ----------------------------------------------------------------

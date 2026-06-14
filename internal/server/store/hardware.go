@@ -160,11 +160,24 @@ LIMIT 1`
 	return info, nil
 }
 
-// ListHardwareReports returns hardware reports for a client within a time
+// ListHardwareReports returns hardware snapshots for a client within a time
 // range (since/until are RFC3339 strings; empty means unbounded).
-func (s *sqliteStore) ListHardwareReports(clientID, since, until string, limit int) ([]*proto.HardwareInfo, error) {
+func (s *sqliteStore) ListHardwareReports(clientID, since, until string, limit int) ([]*HardwareSnapshot, error) {
 	if limit <= 0 {
 		limit = 100
+	}
+
+	// Helper to avoid repeating the same query logic.
+	query := func(where string, args []any) (*sql.Rows, error) {
+		const base = `
+SELECT report_id, created_at, cpu_model, cpu_cores, cpu_threads, cpu_arch,
+       mem_total_bytes, mem_avail_bytes, mem_used_bytes
+FROM hardware_reports
+WHERE client_id = ? %s
+ORDER BY created_at DESC LIMIT ?`
+		allArgs := append([]any{clientID}, args...)
+		allArgs = append(allArgs, limit)
+		return s.db.Query(fmt.Sprintf(base, where), allArgs...)
 	}
 
 	var rows *sql.Rows
@@ -172,77 +185,64 @@ func (s *sqliteStore) ListHardwareReports(clientID, since, until string, limit i
 
 	switch {
 	case since != "" && until != "":
-		rows, err = s.db.Query(`
-SELECT report_id, cpu_model, cpu_cores, cpu_threads, cpu_arch,
-       mem_total_bytes, mem_avail_bytes, mem_used_bytes
-FROM hardware_reports
-WHERE client_id = ? AND created_at >= ? AND created_at <= ?
-ORDER BY created_at DESC LIMIT ?`,
-			clientID, since, until, limit)
+		rows, err = query("AND created_at >= ? AND created_at <= ?", []any{since, until})
 	case since != "":
-		rows, err = s.db.Query(`
-SELECT report_id, cpu_model, cpu_cores, cpu_threads, cpu_arch,
-       mem_total_bytes, mem_avail_bytes, mem_used_bytes
-FROM hardware_reports
-WHERE client_id = ? AND created_at >= ?
-ORDER BY created_at DESC LIMIT ?`,
-			clientID, since, limit)
+		rows, err = query("AND created_at >= ?", []any{since})
 	case until != "":
-		rows, err = s.db.Query(`
-SELECT report_id, cpu_model, cpu_cores, cpu_threads, cpu_arch,
-       mem_total_bytes, mem_avail_bytes, mem_used_bytes
-FROM hardware_reports
-WHERE client_id = ? AND created_at <= ?
-ORDER BY created_at DESC LIMIT ?`,
-			clientID, until, limit)
+		rows, err = query("AND created_at <= ?", []any{until})
 	default:
-		rows, err = s.db.Query(`
-SELECT report_id, cpu_model, cpu_cores, cpu_threads, cpu_arch,
-       mem_total_bytes, mem_avail_bytes, mem_used_bytes
-FROM hardware_reports
-WHERE client_id = ?
-ORDER BY created_at DESC LIMIT ?`,
-			clientID, limit)
+		rows, err = query("", nil)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("store: list hardware reports: %w", err)
 	}
 	defer rows.Close()
 
-	var reports []*proto.HardwareInfo
+	// Collect main rows first, then close the result set before loading
+	// sub-tables.  This avoids a deadlock with SetMaxOpenConns(1): sub-queries
+	// need a connection but the parent Rows still holds it.
+	type mainRow struct {
+		reportID, createdAt                   string
+		cores, threads                        int32
+		totalMem, availMem, usedMem           int64
+		cpuModel, cpuArch                     string
+	}
+	var mainRows []mainRow
 	for rows.Next() {
-		var (
-			reportID                    string
-			cores, threads              int32
-			totalMem, availMem, usedMem int64
-			cpuModel, cpuArch           string
-		)
-		if err := rows.Scan(&reportID, &cpuModel, &cores, &threads, &cpuArch,
-			&totalMem, &availMem, &usedMem); err != nil {
+		var r mainRow
+		if err := rows.Scan(&r.reportID, &r.createdAt, &r.cpuModel, &r.cores, &r.threads, &r.cpuArch,
+			&r.totalMem, &r.availMem, &r.usedMem); err != nil {
+			rows.Close()
 			return nil, fmt.Errorf("store: scan hardware: %w", err)
 		}
-
-		info := &proto.HardwareInfo{
-			Cpu: &proto.CPUInfo{
-				Model: cpuModel, Cores: cores, Threads: threads, Architecture: cpuArch,
-			},
-			Memory: &proto.MemoryInfo{
-				TotalBytes: uint64(totalMem), AvailableBytes: uint64(availMem), UsedBytes: uint64(usedMem),
-			},
-			Disks:       s.loadDisks(reportID),
-			Nets:        s.loadNets(reportID),
-			Bios:        s.loadBIOS(reportID),
-			Motherboard: s.loadMotherboard(reportID),
-		}
-		reports = append(reports, info)
+		mainRows = append(mainRows, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: iterate hardware: %w", err)
 	}
-	if reports == nil {
-		reports = []*proto.HardwareInfo{}
+	rows.Close() // release the connection before sub-queries
+
+	// Now load sub-tables for each row.
+	snapshots := make([]*HardwareSnapshot, 0, len(mainRows))
+	for _, r := range mainRows {
+		snapshots = append(snapshots, &HardwareSnapshot{
+			ReportID:  r.reportID,
+			CreatedAt: r.createdAt,
+			Info: &proto.HardwareInfo{
+				Cpu: &proto.CPUInfo{
+					Model: r.cpuModel, Cores: r.cores, Threads: r.threads, Architecture: r.cpuArch,
+				},
+				Memory: &proto.MemoryInfo{
+					TotalBytes: uint64(r.totalMem), AvailableBytes: uint64(r.availMem), UsedBytes: uint64(r.usedMem),
+				},
+				Disks:       s.loadDisks(r.reportID),
+				Nets:        s.loadNets(r.reportID),
+				Bios:        s.loadBIOS(r.reportID),
+				Motherboard: s.loadMotherboard(r.reportID),
+			},
+		})
 	}
-	return reports, nil
+	return snapshots, nil
 }
 
 // ---- sub-table loaders ------------------------------------------------------

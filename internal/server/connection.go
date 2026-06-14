@@ -21,6 +21,10 @@ type ClientConn struct {
 	// Channel is established and after the stream closes.
 	Stream proto.TeamX_ChannelServer
 
+	// DisconnectCh is closed when an admin forces a kick. The Channel handler
+	// selects on this channel; closing it signals the stream to exit cleanly.
+	DisconnectCh chan struct{}
+
 	LastHeartbeat time.Time
 	Online        bool
 	ConnectedAt   time.Time
@@ -28,8 +32,9 @@ type ClientConn struct {
 
 // ConnectionManager is a thread-safe registry of connected clients.
 type ConnectionManager struct {
-	mu    sync.RWMutex
-	conns map[string]*ClientConn
+	mu       sync.RWMutex
+	conns    map[string]*ClientConn
+	maxConns int // 0 = unlimited
 }
 
 // NewConnectionManager returns an initialized ConnectionManager.
@@ -39,9 +44,24 @@ func NewConnectionManager() *ConnectionManager {
 	}
 }
 
+// SetMaxConns configures the connection limit. 0 means unlimited.
+func (cm *ConnectionManager) SetMaxConns(n int) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.maxConns = n
+}
+
+// MaxConns returns the current connection limit.
+func (cm *ConnectionManager) MaxConns() int {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.maxConns
+}
+
 // Add inserts a newly registered client. If a client with the same ID already
-// exists it is overwritten.
+// exists it is overwritten. The DisconnectCh is initialized here.
 func (cm *ConnectionManager) Add(conn *ClientConn) {
+	conn.DisconnectCh = make(chan struct{})
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.conns[conn.ID] = conn
@@ -77,6 +97,32 @@ func (cm *ConnectionManager) Count() int {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	return len(cm.conns)
+}
+
+// IsFull returns true when maxConns > 0 and the current count has reached it.
+func (cm *ConnectionManager) IsFull() bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.maxConns > 0 && len(cm.conns) >= cm.maxConns
+}
+
+// Kick closes the DisconnectCh of the given client, which signals the Channel
+// handler to return (and the stream to close). If the client is not found or
+// not online, it is a no-op.
+func (cm *ConnectionManager) Kick(clientID string) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	conn, ok := cm.conns[clientID]
+	if !ok || !conn.Online {
+		return
+	}
+	// Close only once; subsequent calls are safe no-ops.
+	select {
+	case <-conn.DisconnectCh:
+		// already closed
+	default:
+		close(conn.DisconnectCh)
+	}
 }
 
 // RecordHeartbeat updates the last-heartbeat timestamp and marks the client

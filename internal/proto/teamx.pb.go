@@ -2379,6 +2379,294 @@ func (x *HardwareSnapshot) GetInfo() *HardwareInfo {
 	return nil
 }
 
+type DisconnectTerminalRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectTerminalRequest) Reset() {
+	*x = DisconnectTerminalRequest{}
+	mi := &file_teamx_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectTerminalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectTerminalRequest) ProtoMessage() {}
+
+func (x *DisconnectTerminalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_teamx_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectTerminalRequest.ProtoReflect.Descriptor instead.
+func (*DisconnectTerminalRequest) Descriptor() ([]byte, []int) {
+	return file_teamx_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *DisconnectTerminalRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+type DisconnectTerminalResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // "kicked" or "not found" or "offline"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectTerminalResponse) Reset() {
+	*x = DisconnectTerminalResponse{}
+	mi := &file_teamx_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectTerminalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectTerminalResponse) ProtoMessage() {}
+
+func (x *DisconnectTerminalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_teamx_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectTerminalResponse.ProtoReflect.Descriptor instead.
+func (*DisconnectTerminalResponse) Descriptor() ([]byte, []int) {
+	return file_teamx_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *DisconnectTerminalResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *DisconnectTerminalResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type BlockTerminalRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BlockTerminalRequest) Reset() {
+	*x = BlockTerminalRequest{}
+	mi := &file_teamx_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BlockTerminalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockTerminalRequest) ProtoMessage() {}
+
+func (x *BlockTerminalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_teamx_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockTerminalRequest.ProtoReflect.Descriptor instead.
+func (*BlockTerminalRequest) Descriptor() ([]byte, []int) {
+	return file_teamx_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *BlockTerminalRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+type BlockTerminalResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BlockTerminalResponse) Reset() {
+	*x = BlockTerminalResponse{}
+	mi := &file_teamx_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BlockTerminalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockTerminalResponse) ProtoMessage() {}
+
+func (x *BlockTerminalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_teamx_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockTerminalResponse.ProtoReflect.Descriptor instead.
+func (*BlockTerminalResponse) Descriptor() ([]byte, []int) {
+	return file_teamx_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *BlockTerminalResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *BlockTerminalResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type UnblockTerminalRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnblockTerminalRequest) Reset() {
+	*x = UnblockTerminalRequest{}
+	mi := &file_teamx_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnblockTerminalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnblockTerminalRequest) ProtoMessage() {}
+
+func (x *UnblockTerminalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_teamx_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnblockTerminalRequest.ProtoReflect.Descriptor instead.
+func (*UnblockTerminalRequest) Descriptor() ([]byte, []int) {
+	return file_teamx_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *UnblockTerminalRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+type UnblockTerminalResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnblockTerminalResponse) Reset() {
+	*x = UnblockTerminalResponse{}
+	mi := &file_teamx_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnblockTerminalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnblockTerminalResponse) ProtoMessage() {}
+
+func (x *UnblockTerminalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_teamx_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnblockTerminalResponse.ProtoReflect.Descriptor instead.
+func (*UnblockTerminalResponse) Descriptor() ([]byte, []int) {
+	return file_teamx_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *UnblockTerminalResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *UnblockTerminalResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 type FileChunk struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Seq   uint64                 `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
@@ -2394,7 +2682,7 @@ type FileChunk struct {
 
 func (x *FileChunk) Reset() {
 	*x = FileChunk{}
-	mi := &file_teamx_proto_msgTypes[33]
+	mi := &file_teamx_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2406,7 +2694,7 @@ func (x *FileChunk) String() string {
 func (*FileChunk) ProtoMessage() {}
 
 func (x *FileChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_teamx_proto_msgTypes[33]
+	mi := &file_teamx_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2419,7 +2707,7 @@ func (x *FileChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileChunk.ProtoReflect.Descriptor instead.
 func (*FileChunk) Descriptor() ([]byte, []int) {
-	return file_teamx_proto_rawDescGZIP(), []int{33}
+	return file_teamx_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *FileChunk) GetSeq() uint64 {
@@ -2499,7 +2787,7 @@ type FileTransferRequest struct {
 
 func (x *FileTransferRequest) Reset() {
 	*x = FileTransferRequest{}
-	mi := &file_teamx_proto_msgTypes[34]
+	mi := &file_teamx_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2511,7 +2799,7 @@ func (x *FileTransferRequest) String() string {
 func (*FileTransferRequest) ProtoMessage() {}
 
 func (x *FileTransferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_teamx_proto_msgTypes[34]
+	mi := &file_teamx_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2524,7 +2812,7 @@ func (x *FileTransferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileTransferRequest.ProtoReflect.Descriptor instead.
 func (*FileTransferRequest) Descriptor() ([]byte, []int) {
-	return file_teamx_proto_rawDescGZIP(), []int{34}
+	return file_teamx_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *FileTransferRequest) GetTransferId() string {
@@ -2574,7 +2862,7 @@ type FileTransferResponse struct {
 
 func (x *FileTransferResponse) Reset() {
 	*x = FileTransferResponse{}
-	mi := &file_teamx_proto_msgTypes[35]
+	mi := &file_teamx_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2586,7 +2874,7 @@ func (x *FileTransferResponse) String() string {
 func (*FileTransferResponse) ProtoMessage() {}
 
 func (x *FileTransferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_teamx_proto_msgTypes[35]
+	mi := &file_teamx_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2599,7 +2887,7 @@ func (x *FileTransferResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileTransferResponse.ProtoReflect.Descriptor instead.
 func (*FileTransferResponse) Descriptor() ([]byte, []int) {
-	return file_teamx_proto_rawDescGZIP(), []int{35}
+	return file_teamx_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *FileTransferResponse) GetTransferId() string {
@@ -2644,7 +2932,7 @@ type FileData struct {
 
 func (x *FileData) Reset() {
 	*x = FileData{}
-	mi := &file_teamx_proto_msgTypes[36]
+	mi := &file_teamx_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2656,7 +2944,7 @@ func (x *FileData) String() string {
 func (*FileData) ProtoMessage() {}
 
 func (x *FileData) ProtoReflect() protoreflect.Message {
-	mi := &file_teamx_proto_msgTypes[36]
+	mi := &file_teamx_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2669,7 +2957,7 @@ func (x *FileData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileData.ProtoReflect.Descriptor instead.
 func (*FileData) Descriptor() ([]byte, []int) {
-	return file_teamx_proto_rawDescGZIP(), []int{36}
+	return file_teamx_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *FileData) GetTransferId() string {
@@ -2920,7 +3208,22 @@ const file_teamx_proto_rawDesc = "" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12-\n" +
-	"\x04info\x18\x03 \x01(\v2\x19.teamx.proto.HardwareInfoR\x04info\"\xff\x01\n" +
+	"\x04info\x18\x03 \x01(\v2\x19.teamx.proto.HardwareInfoR\x04info\"8\n" +
+	"\x19DisconnectTerminalRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\"F\n" +
+	"\x1aDisconnectTerminalResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"3\n" +
+	"\x14BlockTerminalRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\"A\n" +
+	"\x15BlockTerminalResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"5\n" +
+	"\x16UnblockTerminalRequest\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\"C\n" +
+	"\x17UnblockTerminalResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xff\x01\n" +
 	"\tFileChunk\x12\x10\n" +
 	"\x03seq\x18\x01 \x01(\x04R\x03seq\x12M\n" +
 	"\x10transfer_request\x18\x02 \x01(\v2 .teamx.proto.FileTransferRequestH\x00R\x0ftransferRequest\x12P\n" +
@@ -2949,14 +3252,17 @@ const file_teamx_proto_rawDesc = "" +
 	"\x04size\x18\x03 \x01(\x05R\x04size\x12\x12\n" +
 	"\x04data\x18\x04 \x01(\fR\x04data\x12\x17\n" +
 	"\ais_last\x18\x05 \x01(\bR\x06isLast\x12\x1a\n" +
-	"\bchecksum\x18\x06 \x01(\tR\bchecksum2\xee\x03\n" +
+	"\bchecksum\x18\x06 \x01(\tR\bchecksum2\x8b\x06\n" +
 	"\x05TeamX\x12I\n" +
 	"\bRegister\x12\x1d.teamx.proto.HandshakeRequest\x1a\x1e.teamx.proto.HandshakeResponse\x12E\n" +
 	"\aChannel\x12\x1a.teamx.proto.ClientMessage\x1a\x1a.teamx.proto.ServerMessage(\x010\x01\x12B\n" +
 	"\fTransferFile\x12\x16.teamx.proto.FileChunk\x1a\x16.teamx.proto.FileChunk(\x010\x01\x12V\n" +
 	"\rListTerminals\x12!.teamx.proto.ListTerminalsRequest\x1a\".teamx.proto.ListTerminalsResponse\x12P\n" +
 	"\vGetTerminal\x12\x1f.teamx.proto.GetTerminalRequest\x1a .teamx.proto.GetTerminalResponse\x12e\n" +
-	"\x12GetTerminalHistory\x12&.teamx.proto.GetTerminalHistoryRequest\x1a'.teamx.proto.GetTerminalHistoryResponseB\x16Z\x14teamx/internal/protob\x06proto3"
+	"\x12GetTerminalHistory\x12&.teamx.proto.GetTerminalHistoryRequest\x1a'.teamx.proto.GetTerminalHistoryResponse\x12e\n" +
+	"\x12DisconnectTerminal\x12&.teamx.proto.DisconnectTerminalRequest\x1a'.teamx.proto.DisconnectTerminalResponse\x12V\n" +
+	"\rBlockTerminal\x12!.teamx.proto.BlockTerminalRequest\x1a\".teamx.proto.BlockTerminalResponse\x12\\\n" +
+	"\x0fUnblockTerminal\x12#.teamx.proto.UnblockTerminalRequest\x1a$.teamx.proto.UnblockTerminalResponseB\x16Z\x14teamx/internal/protob\x06proto3"
 
 var (
 	file_teamx_proto_rawDescOnce sync.Once
@@ -2970,7 +3276,7 @@ func file_teamx_proto_rawDescGZIP() []byte {
 	return file_teamx_proto_rawDescData
 }
 
-var file_teamx_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_teamx_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_teamx_proto_goTypes = []any{
 	(*HandshakeRequest)(nil),           // 0: teamx.proto.HandshakeRequest
 	(*HandshakeResponse)(nil),          // 1: teamx.proto.HandshakeResponse
@@ -3005,11 +3311,17 @@ var file_teamx_proto_goTypes = []any{
 	(*GetTerminalHistoryRequest)(nil),  // 30: teamx.proto.GetTerminalHistoryRequest
 	(*GetTerminalHistoryResponse)(nil), // 31: teamx.proto.GetTerminalHistoryResponse
 	(*HardwareSnapshot)(nil),           // 32: teamx.proto.HardwareSnapshot
-	(*FileChunk)(nil),                  // 33: teamx.proto.FileChunk
-	(*FileTransferRequest)(nil),        // 34: teamx.proto.FileTransferRequest
-	(*FileTransferResponse)(nil),       // 35: teamx.proto.FileTransferResponse
-	(*FileData)(nil),                   // 36: teamx.proto.FileData
-	nil,                                // 37: teamx.proto.Command.ParamsEntry
+	(*DisconnectTerminalRequest)(nil),  // 33: teamx.proto.DisconnectTerminalRequest
+	(*DisconnectTerminalResponse)(nil), // 34: teamx.proto.DisconnectTerminalResponse
+	(*BlockTerminalRequest)(nil),       // 35: teamx.proto.BlockTerminalRequest
+	(*BlockTerminalResponse)(nil),      // 36: teamx.proto.BlockTerminalResponse
+	(*UnblockTerminalRequest)(nil),     // 37: teamx.proto.UnblockTerminalRequest
+	(*UnblockTerminalResponse)(nil),    // 38: teamx.proto.UnblockTerminalResponse
+	(*FileChunk)(nil),                  // 39: teamx.proto.FileChunk
+	(*FileTransferRequest)(nil),        // 40: teamx.proto.FileTransferRequest
+	(*FileTransferResponse)(nil),       // 41: teamx.proto.FileTransferResponse
+	(*FileData)(nil),                   // 42: teamx.proto.FileData
+	nil,                                // 43: teamx.proto.Command.ParamsEntry
 }
 var file_teamx_proto_depIdxs = []int32{
 	4,  // 0: teamx.proto.ClientMessage.heartbeat:type_name -> teamx.proto.Heartbeat
@@ -3033,29 +3345,35 @@ var file_teamx_proto_depIdxs = []int32{
 	19, // 18: teamx.proto.ProcessInfo.items:type_name -> teamx.proto.ProcessItem
 	21, // 19: teamx.proto.PeripheralInfo.usb_devices:type_name -> teamx.proto.USBDevice
 	22, // 20: teamx.proto.PeripheralInfo.printers:type_name -> teamx.proto.Printer
-	37, // 21: teamx.proto.Command.params:type_name -> teamx.proto.Command.ParamsEntry
+	43, // 21: teamx.proto.Command.params:type_name -> teamx.proto.Command.ParamsEntry
 	27, // 22: teamx.proto.ListTerminalsResponse.terminals:type_name -> teamx.proto.TerminalSummary
 	27, // 23: teamx.proto.GetTerminalResponse.summary:type_name -> teamx.proto.TerminalSummary
 	7,  // 24: teamx.proto.GetTerminalResponse.latest_hardware:type_name -> teamx.proto.HardwareInfo
 	32, // 25: teamx.proto.GetTerminalHistoryResponse.snapshots:type_name -> teamx.proto.HardwareSnapshot
 	7,  // 26: teamx.proto.HardwareSnapshot.info:type_name -> teamx.proto.HardwareInfo
-	34, // 27: teamx.proto.FileChunk.transfer_request:type_name -> teamx.proto.FileTransferRequest
-	35, // 28: teamx.proto.FileChunk.transfer_response:type_name -> teamx.proto.FileTransferResponse
-	36, // 29: teamx.proto.FileChunk.file_data:type_name -> teamx.proto.FileData
+	40, // 27: teamx.proto.FileChunk.transfer_request:type_name -> teamx.proto.FileTransferRequest
+	41, // 28: teamx.proto.FileChunk.transfer_response:type_name -> teamx.proto.FileTransferResponse
+	42, // 29: teamx.proto.FileChunk.file_data:type_name -> teamx.proto.FileData
 	0,  // 30: teamx.proto.TeamX.Register:input_type -> teamx.proto.HandshakeRequest
 	2,  // 31: teamx.proto.TeamX.Channel:input_type -> teamx.proto.ClientMessage
-	33, // 32: teamx.proto.TeamX.TransferFile:input_type -> teamx.proto.FileChunk
+	39, // 32: teamx.proto.TeamX.TransferFile:input_type -> teamx.proto.FileChunk
 	25, // 33: teamx.proto.TeamX.ListTerminals:input_type -> teamx.proto.ListTerminalsRequest
 	28, // 34: teamx.proto.TeamX.GetTerminal:input_type -> teamx.proto.GetTerminalRequest
 	30, // 35: teamx.proto.TeamX.GetTerminalHistory:input_type -> teamx.proto.GetTerminalHistoryRequest
-	1,  // 36: teamx.proto.TeamX.Register:output_type -> teamx.proto.HandshakeResponse
-	3,  // 37: teamx.proto.TeamX.Channel:output_type -> teamx.proto.ServerMessage
-	33, // 38: teamx.proto.TeamX.TransferFile:output_type -> teamx.proto.FileChunk
-	26, // 39: teamx.proto.TeamX.ListTerminals:output_type -> teamx.proto.ListTerminalsResponse
-	29, // 40: teamx.proto.TeamX.GetTerminal:output_type -> teamx.proto.GetTerminalResponse
-	31, // 41: teamx.proto.TeamX.GetTerminalHistory:output_type -> teamx.proto.GetTerminalHistoryResponse
-	36, // [36:42] is the sub-list for method output_type
-	30, // [30:36] is the sub-list for method input_type
+	33, // 36: teamx.proto.TeamX.DisconnectTerminal:input_type -> teamx.proto.DisconnectTerminalRequest
+	35, // 37: teamx.proto.TeamX.BlockTerminal:input_type -> teamx.proto.BlockTerminalRequest
+	37, // 38: teamx.proto.TeamX.UnblockTerminal:input_type -> teamx.proto.UnblockTerminalRequest
+	1,  // 39: teamx.proto.TeamX.Register:output_type -> teamx.proto.HandshakeResponse
+	3,  // 40: teamx.proto.TeamX.Channel:output_type -> teamx.proto.ServerMessage
+	39, // 41: teamx.proto.TeamX.TransferFile:output_type -> teamx.proto.FileChunk
+	26, // 42: teamx.proto.TeamX.ListTerminals:output_type -> teamx.proto.ListTerminalsResponse
+	29, // 43: teamx.proto.TeamX.GetTerminal:output_type -> teamx.proto.GetTerminalResponse
+	31, // 44: teamx.proto.TeamX.GetTerminalHistory:output_type -> teamx.proto.GetTerminalHistoryResponse
+	34, // 45: teamx.proto.TeamX.DisconnectTerminal:output_type -> teamx.proto.DisconnectTerminalResponse
+	36, // 46: teamx.proto.TeamX.BlockTerminal:output_type -> teamx.proto.BlockTerminalResponse
+	38, // 47: teamx.proto.TeamX.UnblockTerminal:output_type -> teamx.proto.UnblockTerminalResponse
+	39, // [39:48] is the sub-list for method output_type
+	30, // [30:39] is the sub-list for method input_type
 	30, // [30:30] is the sub-list for extension type_name
 	30, // [30:30] is the sub-list for extension extendee
 	0,  // [0:30] is the sub-list for field type_name
@@ -3083,7 +3401,7 @@ func file_teamx_proto_init() {
 		(*ReportRequest_Peripheral)(nil),
 	}
 	file_teamx_proto_msgTypes[25].OneofWrappers = []any{}
-	file_teamx_proto_msgTypes[33].OneofWrappers = []any{
+	file_teamx_proto_msgTypes[39].OneofWrappers = []any{
 		(*FileChunk_TransferRequest)(nil),
 		(*FileChunk_TransferResponse)(nil),
 		(*FileChunk_FileData)(nil),
@@ -3094,7 +3412,7 @@ func file_teamx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_teamx_proto_rawDesc), len(file_teamx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

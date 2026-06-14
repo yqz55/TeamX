@@ -37,6 +37,18 @@ type Store interface {
 	// the total count (before offset/limit).
 	ListTerminals(online *bool, offset, limit int) ([]*Terminal, int, error)
 
+	// MarkBlocked sets blocked=1 for a client (adds to blocklist). If the
+	// client doesn't exist, it creates a minimal stub row so future Register
+	// calls for the same hostname are rejected.
+	MarkBlocked(clientID string) error
+
+	// UnblockTerminal clears blocked flag.
+	UnblockTerminal(clientID string) error
+
+	// IsHostnameBlocked returns true when any terminal with the given hostname
+	// has blocked=1.
+	IsHostnameBlocked(hostname string) (bool, error)
+
 	// ---- Hardware -----------------------------------------------------------
 
 	// SaveHardwareReport persists a hardware report and its sub-entities

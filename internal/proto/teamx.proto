@@ -37,6 +37,12 @@ service TeamX {
     rpc ListTerminals(ListTerminalsRequest) returns (ListTerminalsResponse);
     rpc GetTerminal(GetTerminalRequest) returns (GetTerminalResponse);
     rpc GetTerminalHistory(GetTerminalHistoryRequest) returns (GetTerminalHistoryResponse);
+
+    // ---- Admin / Control RPCs (Phase 3.3) ------------------------------------
+
+    rpc DisconnectTerminal(DisconnectTerminalRequest) returns (DisconnectTerminalResponse);
+    rpc BlockTerminal(BlockTerminalRequest) returns (BlockTerminalResponse);
+    rpc UnblockTerminal(UnblockTerminalRequest) returns (UnblockTerminalResponse);
 }
 
 // =============================================================================
@@ -304,6 +310,37 @@ message HardwareSnapshot {
     string       report_id  = 1;
     string       created_at = 2;  // RFC3339
     HardwareInfo info       = 3;
+}
+
+// =============================================================================
+// Admin / Control messages (Phase 3.3)
+// =============================================================================
+
+message DisconnectTerminalRequest {
+    string client_id = 1;
+}
+
+message DisconnectTerminalResponse {
+    bool   ok      = 1;
+    string message = 2;  // "kicked" or "not found" or "offline"
+}
+
+message BlockTerminalRequest {
+    string client_id = 1;
+}
+
+message BlockTerminalResponse {
+    bool   ok      = 1;
+    string message = 2;
+}
+
+message UnblockTerminalRequest {
+    string client_id = 1;
+}
+
+message UnblockTerminalResponse {
+    bool   ok      = 1;
+    string message = 2;
 }
 
 // =============================================================================

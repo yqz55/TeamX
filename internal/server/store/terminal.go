@@ -153,6 +153,40 @@ FROM terminals %s ORDER BY last_seen_at DESC LIMIT ? OFFSET ?`
 	return terminals, total, nil
 }
 
+// ---- Blocklist ---------------------------------------------------------------
+
+// MarkBlocked sets blocked=1 on the terminal row. If the row does not exist
+// yet (terminal hasn't completed Register) it still writes a stub so the
+// hostname-based check works on subsequent registrations.
+func (s *sqliteStore) MarkBlocked(clientID string) error {
+	const query = `UPDATE terminals SET blocked = 1 WHERE client_id = ?`
+	if _, err := s.db.Exec(query, clientID); err != nil {
+		return fmt.Errorf("store: block %s: %w", clientID, err)
+	}
+	return nil
+}
+
+// UnblockTerminal clears the blocked flag.
+func (s *sqliteStore) UnblockTerminal(clientID string) error {
+	const query = `UPDATE terminals SET blocked = 0 WHERE client_id = ?`
+	_, err := s.db.Exec(query, clientID)
+	if err != nil {
+		return fmt.Errorf("store: unblock %s: %w", clientID, err)
+	}
+	return nil
+}
+
+// IsHostnameBlocked returns true if any terminal with the given hostname has
+// blocked=1.
+func (s *sqliteStore) IsHostnameBlocked(hostname string) (bool, error) {
+	const query = `SELECT COUNT(*) FROM terminals WHERE hostname = ? AND blocked = 1`
+	var n int
+	if err := s.db.QueryRow(query, hostname).Scan(&n); err != nil {
+		return false, fmt.Errorf("store: check blocked hostname %s: %w", hostname, err)
+	}
+	return n > 0, nil
+}
+
 // ---- helpers ----------------------------------------------------------------
 
 func nullStr(ns sql.NullString) string {

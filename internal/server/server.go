@@ -33,6 +33,23 @@ func NewTeamXServer(cm *ConnectionManager, store store.Store) *TeamXServer {
 // stores the client in the ConnectionManager (offline until the Channel stream
 // is opened).
 func (s *TeamXServer) Register(ctx context.Context, req *proto.HandshakeRequest) (*proto.HandshakeResponse, error) {
+	// 1. Capacity check — reject when server is full.
+	if s.cm.IsFull() {
+		log.Printf("[register] rejected: server full hostname=%s", req.GetHostname())
+		return nil, status.Error(codes.ResourceExhausted, "server at capacity")
+	}
+
+	// 2. Blacklist check — reject blocked hostnames.
+	if blocked, err := s.store.IsHostnameBlocked(req.GetHostname()); err != nil {
+		log.Printf("[register] blocklist check failed: hostname=%s err=%v", req.GetHostname(), err)
+	} else if blocked {
+		log.Printf("[register] rejected: hostname=%s is blocked", req.GetHostname())
+		return &proto.HandshakeResponse{
+			Ok:      false,
+			Message: "terminal is blocked",
+		}, nil
+	}
+
 	clientID := uuid.New().String()
 
 	conn := &ClientConn{
@@ -58,15 +75,25 @@ func (s *TeamXServer) Register(ctx context.Context, req *proto.HandshakeRequest)
 	}
 
 	return &proto.HandshakeResponse{
-		Ok:        true,
-		ClientId:  clientID,
+		Ok:         true,
+		ClientId:   clientID,
 		ServerTime: time.Now().Format(time.RFC3339),
-		Message:   "welcome to TeamX",
+		Message:    "welcome to TeamX",
 	}, nil
+}
+
+// ---- recvResult is used by the Channel handler select loop -------------------
+type recvResult struct {
+	msg *proto.ClientMessage
+	err error
 }
 
 // Channel handles the bidirectional stream between server and a client. The
 // client MUST include its client_id via gRPC metadata ("client-id").
+//
+// The handler uses a select loop that listens on both the gRPC stream (via a
+// background recv goroutine) and the client's DisconnectCh so an admin can
+// forcibly kick the terminal.
 func (s *TeamXServer) Channel(stream proto.TeamX_ChannelServer) error {
 	// Extract client_id from metadata.
 	clientID, err := extractClientID(stream.Context())
@@ -86,27 +113,54 @@ func (s *TeamXServer) Channel(stream proto.TeamX_ChannelServer) error {
 
 	log.Printf("[channel] stream opened: client=%s", clientID)
 
-	// Recv loop — process incoming messages from the client.
-	for {
-		msg, err := stream.Recv()
-		if err == io.EOF {
-			log.Printf("[channel] stream closed (EOF): client=%s", clientID)
-			return nil
-		}
-		if err != nil {
-			log.Printf("[channel] stream error: client=%s err=%v", clientID, err)
-			return err
-		}
+	// Background goroutine reads from the gRPC stream and pushes results into a
+	// buffered channel so the main select loop can react to both incoming
+	// messages and the admin kick signal.
+	msgCh := make(chan recvResult, 8)
+	streamCtx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
 
-		switch payload := msg.Payload.(type) {
-		case *proto.ClientMessage_Heartbeat:
-			s.handleHeartbeat(stream, clientID, payload.Heartbeat)
-		case *proto.ClientMessage_ReportRequest:
-			s.handleReport(clientID, payload.ReportRequest)
-		case *proto.ClientMessage_CommandResult:
-			s.handleCommandResult(clientID, payload.CommandResult)
-		default:
-			log.Printf("[channel] unknown message type from client=%s seq=%d", clientID, msg.Seq)
+	go func() {
+		for {
+			msg, err := stream.Recv()
+			select {
+			case msgCh <- recvResult{msg, err}:
+			case <-streamCtx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	// ---- Select loop --------------------------------------------------------
+	for {
+		select {
+		case <-conn.DisconnectCh:
+			log.Printf("[channel] admin kick: client=%s", clientID)
+			return nil
+
+		case r := <-msgCh:
+			if r.err == io.EOF {
+				log.Printf("[channel] stream closed (EOF): client=%s", clientID)
+				return nil
+			}
+			if r.err != nil {
+				log.Printf("[channel] stream error: client=%s err=%v", clientID, r.err)
+				return r.err
+			}
+
+			switch payload := r.msg.Payload.(type) {
+			case *proto.ClientMessage_Heartbeat:
+				s.handleHeartbeat(stream, clientID, payload.Heartbeat)
+			case *proto.ClientMessage_ReportRequest:
+				s.handleReport(clientID, payload.ReportRequest)
+			case *proto.ClientMessage_CommandResult:
+				s.handleCommandResult(clientID, payload.CommandResult)
+			default:
+				log.Printf("[channel] unknown message type from client=%s seq=%d", clientID, r.msg.Seq)
+			}
 		}
 	}
 }
@@ -270,6 +324,47 @@ func (s *TeamXServer) GetTerminalHistory(ctx context.Context, req *proto.GetTerm
 	}, nil
 }
 
+// ---- Admin / Control RPCs (Phase 3.3) ---------------------------------------
+
+// DisconnectTerminal kicks a connected terminal by closing its DisconnectCh.
+func (s *TeamXServer) DisconnectTerminal(ctx context.Context, req *proto.DisconnectTerminalRequest) (*proto.DisconnectTerminalResponse, error) {
+	conn := s.cm.Get(req.GetClientId())
+	if conn == nil || !conn.Online {
+		return &proto.DisconnectTerminalResponse{Ok: false, Message: "terminal not found or offline"}, nil
+	}
+
+	s.cm.Kick(req.GetClientId())
+	log.Printf("[admin] kick: client=%s host=%s", req.GetClientId(), conn.Hostname)
+
+	return &proto.DisconnectTerminalResponse{Ok: true, Message: "kicked"}, nil
+}
+
+// BlockTerminal adds a terminal to the blocklist and kicks it if online.
+func (s *TeamXServer) BlockTerminal(ctx context.Context, req *proto.BlockTerminalRequest) (*proto.BlockTerminalResponse, error) {
+	if err := s.store.MarkBlocked(req.GetClientId()); err != nil {
+		return nil, status.Errorf(codes.Internal, "block failed: %v", err)
+	}
+
+	// Kick if currently connected.
+	conn := s.cm.Get(req.GetClientId())
+	if conn != nil && conn.Online {
+		s.cm.Kick(req.GetClientId())
+	}
+
+	log.Printf("[admin] block: client=%s host=%s", req.GetClientId(), connHost(conn))
+	return &proto.BlockTerminalResponse{Ok: true, Message: "blocked"}, nil
+}
+
+// UnblockTerminal removes a terminal from the blocklist.
+func (s *TeamXServer) UnblockTerminal(ctx context.Context, req *proto.UnblockTerminalRequest) (*proto.UnblockTerminalResponse, error) {
+	if err := s.store.UnblockTerminal(req.GetClientId()); err != nil {
+		return nil, status.Errorf(codes.Internal, "unblock failed: %v", err)
+	}
+
+	log.Printf("[admin] unblock: client=%s", req.GetClientId())
+	return &proto.UnblockTerminalResponse{Ok: true, Message: "unblocked"}, nil
+}
+
 // ---- helpers ----------------------------------------------------------------
 
 func extractClientID(ctx context.Context) (string, error) {
@@ -282,6 +377,13 @@ func extractClientID(ctx context.Context) (string, error) {
 		return "", status.Error(codes.Unauthenticated, "client-id header required")
 	}
 	return ids[0], nil
+}
+
+func connHost(conn *ClientConn) string {
+	if conn == nil {
+		return "-"
+	}
+	return conn.Hostname
 }
 
 // TransferFile is stubbed — it will be implemented in Phase 7.

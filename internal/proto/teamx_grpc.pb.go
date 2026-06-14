@@ -25,6 +25,9 @@ const (
 	TeamX_ListTerminals_FullMethodName      = "/teamx.proto.TeamX/ListTerminals"
 	TeamX_GetTerminal_FullMethodName        = "/teamx.proto.TeamX/GetTerminal"
 	TeamX_GetTerminalHistory_FullMethodName = "/teamx.proto.TeamX/GetTerminalHistory"
+	TeamX_DisconnectTerminal_FullMethodName = "/teamx.proto.TeamX/DisconnectTerminal"
+	TeamX_BlockTerminal_FullMethodName      = "/teamx.proto.TeamX/BlockTerminal"
+	TeamX_UnblockTerminal_FullMethodName    = "/teamx.proto.TeamX/UnblockTerminal"
 )
 
 // TeamXClient is the client API for TeamX service.
@@ -46,6 +49,9 @@ type TeamXClient interface {
 	ListTerminals(ctx context.Context, in *ListTerminalsRequest, opts ...grpc.CallOption) (*ListTerminalsResponse, error)
 	GetTerminal(ctx context.Context, in *GetTerminalRequest, opts ...grpc.CallOption) (*GetTerminalResponse, error)
 	GetTerminalHistory(ctx context.Context, in *GetTerminalHistoryRequest, opts ...grpc.CallOption) (*GetTerminalHistoryResponse, error)
+	DisconnectTerminal(ctx context.Context, in *DisconnectTerminalRequest, opts ...grpc.CallOption) (*DisconnectTerminalResponse, error)
+	BlockTerminal(ctx context.Context, in *BlockTerminalRequest, opts ...grpc.CallOption) (*BlockTerminalResponse, error)
+	UnblockTerminal(ctx context.Context, in *UnblockTerminalRequest, opts ...grpc.CallOption) (*UnblockTerminalResponse, error)
 }
 
 type teamXClient struct {
@@ -122,6 +128,36 @@ func (c *teamXClient) GetTerminalHistory(ctx context.Context, in *GetTerminalHis
 	return out, nil
 }
 
+func (c *teamXClient) DisconnectTerminal(ctx context.Context, in *DisconnectTerminalRequest, opts ...grpc.CallOption) (*DisconnectTerminalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DisconnectTerminalResponse)
+	err := c.cc.Invoke(ctx, TeamX_DisconnectTerminal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *teamXClient) BlockTerminal(ctx context.Context, in *BlockTerminalRequest, opts ...grpc.CallOption) (*BlockTerminalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockTerminalResponse)
+	err := c.cc.Invoke(ctx, TeamX_BlockTerminal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *teamXClient) UnblockTerminal(ctx context.Context, in *UnblockTerminalRequest, opts ...grpc.CallOption) (*UnblockTerminalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnblockTerminalResponse)
+	err := c.cc.Invoke(ctx, TeamX_UnblockTerminal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TeamXServer is the server API for TeamX service.
 // All implementations must embed UnimplementedTeamXServer
 // for forward compatibility.
@@ -141,6 +177,9 @@ type TeamXServer interface {
 	ListTerminals(context.Context, *ListTerminalsRequest) (*ListTerminalsResponse, error)
 	GetTerminal(context.Context, *GetTerminalRequest) (*GetTerminalResponse, error)
 	GetTerminalHistory(context.Context, *GetTerminalHistoryRequest) (*GetTerminalHistoryResponse, error)
+	DisconnectTerminal(context.Context, *DisconnectTerminalRequest) (*DisconnectTerminalResponse, error)
+	BlockTerminal(context.Context, *BlockTerminalRequest) (*BlockTerminalResponse, error)
+	UnblockTerminal(context.Context, *UnblockTerminalRequest) (*UnblockTerminalResponse, error)
 	mustEmbedUnimplementedTeamXServer()
 }
 
@@ -168,6 +207,15 @@ func (UnimplementedTeamXServer) GetTerminal(context.Context, *GetTerminalRequest
 }
 func (UnimplementedTeamXServer) GetTerminalHistory(context.Context, *GetTerminalHistoryRequest) (*GetTerminalHistoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTerminalHistory not implemented")
+}
+func (UnimplementedTeamXServer) DisconnectTerminal(context.Context, *DisconnectTerminalRequest) (*DisconnectTerminalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisconnectTerminal not implemented")
+}
+func (UnimplementedTeamXServer) BlockTerminal(context.Context, *BlockTerminalRequest) (*BlockTerminalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BlockTerminal not implemented")
+}
+func (UnimplementedTeamXServer) UnblockTerminal(context.Context, *UnblockTerminalRequest) (*UnblockTerminalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnblockTerminal not implemented")
 }
 func (UnimplementedTeamXServer) mustEmbedUnimplementedTeamXServer() {}
 func (UnimplementedTeamXServer) testEmbeddedByValue()               {}
@@ -276,6 +324,60 @@ func _TeamX_GetTerminalHistory_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TeamX_DisconnectTerminal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisconnectTerminalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TeamXServer).DisconnectTerminal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TeamX_DisconnectTerminal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TeamXServer).DisconnectTerminal(ctx, req.(*DisconnectTerminalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TeamX_BlockTerminal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockTerminalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TeamXServer).BlockTerminal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TeamX_BlockTerminal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TeamXServer).BlockTerminal(ctx, req.(*BlockTerminalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TeamX_UnblockTerminal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnblockTerminalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TeamXServer).UnblockTerminal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TeamX_UnblockTerminal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TeamXServer).UnblockTerminal(ctx, req.(*UnblockTerminalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TeamX_ServiceDesc is the grpc.ServiceDesc for TeamX service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -298,6 +400,18 @@ var TeamX_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTerminalHistory",
 			Handler:    _TeamX_GetTerminalHistory_Handler,
+		},
+		{
+			MethodName: "DisconnectTerminal",
+			Handler:    _TeamX_DisconnectTerminal_Handler,
+		},
+		{
+			MethodName: "BlockTerminal",
+			Handler:    _TeamX_BlockTerminal_Handler,
+		},
+		{
+			MethodName: "UnblockTerminal",
+			Handler:    _TeamX_UnblockTerminal_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -23,6 +23,7 @@ func main() {
 	dbPath := flag.String("db", "teamx.db", "SQLite database path")
 	heartbeatInterval := flag.Duration("heartbeat-interval", 10*time.Second, "How often to check heartbeat timeout")
 	heartbeatTimeout := flag.Duration("heartbeat-timeout", 30*time.Second, "Heartbeat timeout before marking offline")
+	maxConns := flag.Int("max-connections", 0, "Maximum concurrent connections (0 = unlimited)")
 	flag.Parse()
 
 	// ---- Database ------------------------------------------------------------
@@ -43,6 +44,9 @@ func main() {
 	}
 
 	cm := server.NewConnectionManager()
+	if *maxConns > 0 {
+		cm.SetMaxConns(*maxConns)
+	}
 	srv := server.NewTeamXServer(cm, dbStore)
 
 	grpcServer := grpc.NewServer()
@@ -69,6 +73,7 @@ func main() {
 
 	log.Printf("TeamX Server listening on %s", addr)
 	log.Printf("  heartbeat check interval: %v, timeout: %v", *heartbeatInterval, *heartbeatTimeout)
+	log.Printf("  max connections: %d (0=unlimited)", *maxConns)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("server exited: %v", err)

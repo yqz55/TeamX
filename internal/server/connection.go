@@ -129,8 +129,10 @@ func (cm *ConnectionManager) ClearStream(clientID string) {
 }
 
 // HeartbeatChecker periodically scans connections and marks clients offline if
-// their last heartbeat exceeds timeout. Run this in a goroutine.
-func (cm *ConnectionManager) HeartbeatChecker(interval, timeout time.Duration) {
+// their last heartbeat exceeds timeout. If onOffline is non-nil, it is called
+// with each newly-offline client ID (useful for persisting status to a store).
+// Run this in a goroutine.
+func (cm *ConnectionManager) HeartbeatChecker(interval, timeout time.Duration, onOffline func(clientID string)) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -139,8 +141,9 @@ func (cm *ConnectionManager) HeartbeatChecker(interval, timeout time.Duration) {
 		for id, conn := range cm.conns {
 			if conn.Online && now.Sub(conn.LastHeartbeat) > timeout {
 				conn.Online = false
-				// TODO: log the offline event
-				_ = id // placeholder — will log in Phase 3
+				if onOffline != nil {
+					onOffline(id)
+				}
 			}
 		}
 		cm.mu.Unlock()

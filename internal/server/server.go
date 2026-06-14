@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"teamx/internal/proto"
+	"teamx/internal/server/store"
 
 	"github.com/google/uuid"
 )
@@ -18,12 +19,13 @@ import (
 // TeamXServer implements the gRPC TeamX service.
 type TeamXServer struct {
 	proto.UnimplementedTeamXServer
-	cm *ConnectionManager
+	cm    *ConnectionManager
+	store store.Store
 }
 
-// NewTeamXServer creates a new server with the given ConnectionManager.
-func NewTeamXServer(cm *ConnectionManager) *TeamXServer {
-	return &TeamXServer{cm: cm}
+// NewTeamXServer creates a new server with the given dependencies.
+func NewTeamXServer(cm *ConnectionManager, store store.Store) *TeamXServer {
+	return &TeamXServer{cm: cm, store: store}
 }
 
 // Register handles the client handshake. It assigns a unique client_id and
@@ -46,6 +48,13 @@ func (s *TeamXServer) Register(ctx context.Context, req *proto.HandshakeRequest)
 
 	log.Printf("[register] client registered: id=%s hostname=%s os=%s version=%s",
 		clientID, conn.Hostname, conn.OS, conn.ClientVersion)
+
+	// Persist to store — failure does not block registration.
+	if err := s.store.UpsertTerminal(clientID, req.GetHostname(), req.GetOs(),
+		req.GetOsVersion(), req.GetKernelVersion(), req.GetClientVersion(),
+		req.GetMacAddrs(), req.GetIpAddrs()); err != nil {
+		log.Printf("[register] store upsert failed: client=%s err=%v", clientID, err)
+	}
 
 	return &proto.HandshakeResponse{
 		Ok:        true,
@@ -106,6 +115,11 @@ func (s *TeamXServer) Channel(stream proto.TeamX_ChannelServer) error {
 func (s *TeamXServer) handleHeartbeat(stream proto.TeamX_ChannelServer, clientID string, hb *proto.Heartbeat) {
 	s.cm.RecordHeartbeat(clientID)
 
+	// Persist heartbeat — not critical path; log and continue on failure.
+	if err := s.store.UpdateHeartbeat(clientID); err != nil {
+		log.Printf("[heartbeat] store update failed: client=%s err=%v", clientID, err)
+	}
+
 	ack := &proto.ServerMessage{
 		Seq: 0, // Phase 1: seq is placeholder
 		Payload: &proto.ServerMessage_HeartbeatAck{
@@ -133,6 +147,13 @@ func (s *TeamXServer) handleReport(clientID string, report *proto.ReportRequest)
 			len(hw.GetDisks()), len(hw.GetNets()),
 			hw.GetBios() != nil, hw.GetMotherboard() != nil,
 		)
+
+		// Persist hardware report — failure does not block the stream.
+		if err := s.store.SaveHardwareReport(clientID, report); err != nil {
+			log.Printf("[report] store save failed: client=%s report_id=%s err=%v",
+				clientID, report.GetReportId(), err)
+		}
+
 	default:
 		log.Printf("[report] client=%s report_id=%s type=<unknown>", clientID, report.GetReportId())
 	}

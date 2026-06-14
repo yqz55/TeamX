@@ -121,8 +121,21 @@ func (s *TeamXServer) handleHeartbeat(stream proto.TeamX_ChannelServer, clientID
 }
 
 func (s *TeamXServer) handleReport(clientID string, report *proto.ReportRequest) {
-	// Phase 2 will store the report in the database. For now, just log.
-	log.Printf("[report] client=%s report_id=%s", clientID, report.GetReportId())
+	switch payload := report.Type.(type) {
+	case *proto.ReportRequest_Hardware:
+		hw := payload.Hardware
+		cpu := hw.GetCpu()
+		mem := hw.GetMemory()
+		log.Printf("[report] hardware: client=%s report_id=%s cpu=%s cores=%d/%d arch=%s mem=%dMB/%dMB disks=%d nets=%d bios=%v mb=%v",
+			clientID, report.GetReportId(),
+			cpu.GetModel(), cpu.GetCores(), cpu.GetThreads(), cpu.GetArchitecture(),
+			mem.GetUsedBytes()/(1024*1024), mem.GetTotalBytes()/(1024*1024),
+			len(hw.GetDisks()), len(hw.GetNets()),
+			hw.GetBios() != nil, hw.GetMotherboard() != nil,
+		)
+	default:
+		log.Printf("[report] client=%s report_id=%s type=<unknown>", clientID, report.GetReportId())
+	}
 }
 
 func (s *TeamXServer) handleCommandResult(clientID string, result *proto.CommandResult) {

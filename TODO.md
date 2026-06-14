@@ -97,19 +97,19 @@
 | **PeripheralInfo** | **插件** | Phase 6 | Q2✅ USB 安全策略独立演进；Q3✅ 涉密环境强需求，云 VM 完全不需要 |
 
 ### 2.1 硬件信息采集（`internal/client/collector/`）
-- [ ] CPU 型号、核心数、逻辑线程数
-- [ ] 内存总量、可用量、已用量
-- [ ] 磁盘列表、挂载点、文件系统类型、容量
-- [ ] 网卡列表、MAC 地址、IP 地址
-- [ ] 主板/BIOS 信息（可选）
+- [x] CPU 型号、核心数、逻辑线程数
+- [x] 内存总量、可用量、已用量
+- [x] 磁盘列表、挂载点、文件系统类型、容量
+- [x] 网卡列表、MAC 地址、IP 地址
+- [x] 主板/BIOS 信息（可选）
 
 ### 2.2 采集调度
-- [ ] 实现定时采集（可配置间隔，默认 60s）
-- [ ] 采集数据的本地缓存与去重（避免重复上报相同数据）
+- [x] 实现定时采集（`reportLoop` goroutine，可配置间隔，默认 300s）
+- [x] 采集数据的本地缓存与去重（`ReportCache`，SHA-256 比对，避免重复上报）
 
 ### 2.3 上报到 Server
-- [ ] 实现 gRPC 流式上报（通过 Channel 发送 `ReportRequest`）
-- [ ] 上报数据序列化为 Protobuf
+- [x] 实现 gRPC 流式上报（通过 Channel 发送 `ReportRequest`）
+- [x] Server 端解析并打日志（`handleReport` type-switch 解包 HardwareInfo）
 
 ### 2.4 验证
 - [ ] 分别在 Linux 和 Windows 上测试硬件信息采集

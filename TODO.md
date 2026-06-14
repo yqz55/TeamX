@@ -112,8 +112,8 @@
 - [x] Server 端解析并打日志（`handleReport` type-switch 解包 HardwareInfo）
 
 ### 2.4 验证
-- [ ] 分别在 Linux 和 Windows 上测试硬件信息采集
-- [ ] 确认 Server 收到完整上报数据
+- [x] 分别在 Linux 和 Windows 上测试硬件信息采集
+- [x] 确认 Server 收到完整上报数据
 
 ---
 

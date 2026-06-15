@@ -142,59 +142,91 @@
 
 ---
 
-## Phase 4 — 管理界面（Web）
+## Phase 4a — 管理后台网关 + Admin CLI
 
-> **目标**: 提供 Web 界面查看终端列表、详情，发送命令。
+> **目标**: admin.exe 提供 HTTP 网关（ConnectRPC）转发 gRPC 查询/管控 RPC 到浏览器；
+> 同时提供 CLI 子命令方便日常调试。
 
-### 4.1 后端 API 层
-- [ ] RESTful API（或 gRPC-Web）封装：
-  - `GET /api/terminals` — 终端列表
-  - `GET /api/terminals/:id` — 终端详情
-  - `POST /api/terminals/:id/command` — 发送命令
-  - `GET /api/terminals/:id/hardware` — 硬件信息
-  - `GET /api/terminals/:id/software` — 软件信息
-  - `GET /api/terminals/:id/processes` — 进程列表
-- [ ] WebSocket 端点（终端状态实时推送）
+### 4a.1 Admin CLI（优先）
+- [ ] `admin list` — 终端列表（调用 ListTerminals）
+- [ ] `admin show <id>` — 终端详情 + 最新硬件（调用 GetTerminal）
+- [ ] `admin history <id>` — 硬件历史（调用 GetTerminalHistory）
+- [ ] `admin kick <id>` — 踢断终端（调用 DisconnectTerminal）
+- [ ] `admin block <id>` — 封禁终端（调用 BlockTerminal）
+- [ ] `admin unblock <id>` — 解封终端（调用 UnblockTerminal）
 
-### 4.2 前端页面
-- [ ] 终端列表页（表格 + 在线/离线状态标签）
-- [ ] 终端详情页（Tab 切换：概览/硬件/软件/进程/用户/外设）
-- [ ] 命令发送面板（选择终端 → 输入命令 → 查看执行结果）
-- [ ] 实时状态更新（WebSocket 推送在线/离线变化）
+### 4a.2 HTTP 网关
+- [ ] admin.exe 启动 HTTP Server，使用 ConnectRPC（`bufbuild/connect-go`）暴露现有 gRPC RPC：
+  - 复用 `teamx.proto` 定义，不需要手写 REST 路由
+  - 浏览器通过 Connect 协议直接调 `ListTerminals` / `GetTerminal` / `DisconnectTerminal` 等
+- [ ] CORS 配置（前端开发时 localhost:5173 → localhost:8080）
+- [ ] WebSocket 端点 `/ws` — 广播终端在线/离线变化
 
-### 4.3 前端技术选型与搭建
-- [ ] 初始化前端项目（React/Vue + TypeScript）
-- [ ] 组件库引入（Ant Design / Element Plus）
-- [ ] API 请求封装
-- [ ] 路由配置
+### 4a.3 验证
+- [ ] `admin list` / `admin show` / `admin kick` CLI 命令正常
+- [ ] 浏览器 `fetch("http://localhost:8080/teamx.proto.TeamX/ListTerminals")` 返回 JSON
+- [ ] WebSocket 连接成功，终端上下线时收到推送
 
-### 4.4 验证
-- [ ] 浏览器访问管理界面，看到终端列表
-- [ ] 点击终端查看详情数据
-- [ ] 在线/离线状态实时更新
+> 设计决策：不设 REST API 翻译层。gRPC 已有 9 个现成 RPC，ConnectRPC 让浏览器直接消费
+> 这些 RPC（JSON over HTTP），省去手写路由 + 请求转换的重复劳动。
+
+---
+
+## Phase 4b — 前端管理界面
+
+> **目标**: 浏览器端 SPA，通过 ConnectRPC 调用 Phase 4a 网关，展示终端数据。
+
+### 4b.1 项目搭建
+- [ ] 初始化前端项目（React/Vue + TypeScript + Vite）
+- [ ] 引入组件库 + 图标库
+- [ ] Connect 客户端封装（`createClient()` → 类型安全调用）
+- [ ] 路由配置（列表页 `/` / 详情页 `/terminal/:id`）
+
+### 4b.2 终端列表页
+- [ ] 表格展示：主机名、OS、版本、在线状态标签、最后心跳时间
+- [ ] 在线/离线过滤器
+- [ ] 分页控件
+- [ ] 行操作：查看详情、踢断、封禁/解封
+- [ ] WebSocket 实时更新在线状态
+
+### 4b.3 终端详情页
+- [ ] 概览 Tab：基本信息 + 连接状态
+- [ ] 硬件 Tab：CPU/内存/磁盘/网卡/BIOS/主板
+- [ ] 软件 Tab（Phase 6 填充数据）
+- [ ] 进程 Tab（Phase 6 填充数据）
+
+### 4b.4 验证
+- [ ] 浏览器访问 → 终端列表展示
+- [ ] 点击终端 → 详情页展示硬件信息
+- [ ] Kick 按钮 → 终端下线，列表状态自动更新
 
 ---
 
 ## Phase 5 — 命令下发与控制
 
-> **目标**: 管理界面 → Server → Client 的命令链路，支持同步/异步执行与结果回传。
+> **目标**: Server → Client 命令链路，支持同步/异步执行与结果回传。
+>
+> ⚡ Phase 5 不依赖 Phase 4b。Server 端 RPC + Client 端执行器写完即可用
+> grpcurl 或 admin CLI 直接验证。
 
 ### 5.1 命令模型
 - [ ] 定义命令类型枚举（`CollectNow`, `RunScript`, `KillProcess`, `UpdateConfig`, `Upgrade`, `Restart`, `Shutdown`）
 - [ ] 命令生命周期状态机（`Pending → Sent → Executing → Completed/Failed/Timeout`）
+- [ ] Proto 新增 `SendCommand` RPC + `CommandLog` 查询 RPC
 
 ### 5.2 Server 端命令调度
 - [ ] 命令队列管理（每终端独立队列）
 - [ ] 命令超时处理（可配置超时时间）
-- [ ] 命令执行结果存储与查询
+- [ ] 命令执行结果存储到 `command_logs` 表（3.1 已建表）
 
 ### 5.3 Client 端命令执行
-- [ ] 接收命令流（gRPC server-side stream）
-- [ ] 命令分发到对应处理器
-- [ ] 执行结果回传
+- [ ] Channel recv 循环中 dispatch `ServerMessage_Command`
+- [ ] 命令分发到对应处理器（先用 `RunScript` + `CollectNow` 两个类型验证）
+- [ ] 执行结果通过 Channel stream 回传
 
 ### 5.4 验证
-- [ ] 管理界面发送 "CollectNow" → client 立即上报 → 界面可见最新数据
+- [ ] grpcurl 发送 `SendCommand(type=CollectNow)` → client 立即上报 → server 收到最新数据
+- [ ] grpcurl 发送 `SendCommand(type=RunScript, params={cmd:"uptime"})` → 返回执行结果
 - [ ] 发送超时未响应的命令 → 状态标记为 Timeout
 - [ ] 并发向 10 个终端发送命令 → 全部正确执行
 
@@ -203,8 +235,18 @@
 ## Phase 6 — 插件系统
 
 > **目标**: 支持动态加载插件扩展客户端功能，无需重新编译客户端。
+>
+> ⚠️ **技术风险**: Go 原生 plugin（`.so`）仅支持 Linux，且要求编译版本完全一致。
+> 6.1 阶段需做 POC 对比 `hashicorp/go-plugin`（进程隔离、跨平台）和 Wasm（wasmtime-go）
+> 后再决定技术路线。
 
-### 6.1 插件框架设计
+### 6.1 插件框架选型 POC
+- [ ] Go 原生 plugin (`.so`) POC — 验证 Linux 下加载/卸载/版本匹配
+- [ ] `hashicorp/go-plugin` POC — 验证进程隔离 + 跨平台 + 热重载
+- [ ] Wasm (wasmtime-go) POC — 验证沙箱安全 + 跨平台 + 性能
+- [ ] 输出选型对比文档（隔离性/跨平台/运维成本/性能），拍板技术路线
+
+### 6.2 插件框架设计
 - [ ] 定义插件接口（Go interface）：
   ```go
   type Plugin interface {
@@ -217,27 +259,28 @@
   ```
 - [ ] 插件元数据定义（`plugin.json`: name, version, author, dependencies）
 
-### 6.2 插件加载器
+### 6.3 插件加载器
 - [ ] 动态发现（扫描 `plugins/` 目录）
 - [ ] 插件加载/卸载
 - [ ] 插件依赖解析
 - [ ] 插件隔离（错误隔离：单个插件崩溃不影响其他插件和主进程）
 - [ ] 插件热重载（检测文件变化自动 reload）
 
-### 6.3 插件管理 API
+### 6.4 插件管理 API
 - [ ] Server 端：插件列表查询、插件下发到终端
 - [ ] Client 端：接收插件包、加载/卸载/启用/禁用插件
 - [ ] 管理界面：插件管理页面（上传插件、分发插件、查看各终端插件状态）
 
-### 6.4 内置示例插件
-- [ ] `hardware-collector` — 硬件采集插件（将 Phase 2 的 HardwareInfo 内置逻辑包装为 InfoCollector 接口的 `.so`，验证已内置模块平滑插件化）
-- [ ] `software-collector` — 软件盘点插件（全新实现：Linux dpkg/rpm，Windows 注册表，MacOS brew/pkgutil）
-- [ ] `user-auditor` — 用户审计插件（全新实现：本地用户列表、用户组、当前登录）
-- [ ] `process-monitor` — 进程监控插件（全新实现：进程列表采集 + 告警规则）
-- [ ] `peripheral-scanner` — 外设扫描插件（全新实现：USB 设备列表 + 打印机）
-- [ ] `disk-cleaner` — 磁盘清理插件（独立新增）
+### 6.5 内置示例插件
+- [ ] `software-collector` — 软件盘点（Linux dpkg/rpm，Windows 注册表，MacOS brew/pkgutil）
+- [ ] `user-auditor` — 用户审计（本地用户列表、用户组、当前登录）
+- [ ] `process-monitor` — 进程监控（进程列表采集 + 告警规则）
+- [ ] `peripheral-scanner` — 外设扫描（USB 设备列表 + 打印机）
 
-### 6.5 验证
+> 注：`hardware-collector` 插件取消——Phase 2 已验证硬件采集作为内置模块完全合理，
+> 不需要插件化。`disk-cleaner` 移到 Phase 7 作为文件管理的一部分。
+
+### 6.6 验证
 - [ ] 编写一个测试插件，动态加载并执行
 - [ ] 运行时替换插件文件，确认热重载生效
 - [ ] 插件 panic 后，主进程和其他插件不受影响
@@ -251,6 +294,7 @@
 ### 7.1 文件操作协议
 - [ ] Protobuf 定义：`ListDirRequest/Response`、`UploadFile`、`DownloadFile`、`DeleteFile`、`RenameFile`
 - [ ] 文件分片传输（大文件支持断点续传）
+- [ ] `TransferFile` bidi stream 实现（Phase 0 已定义协议）
 
 ### 7.2 Client 端文件服务
 - [ ] 目录列表（指定路径，返回文件/目录列表）
@@ -258,6 +302,7 @@
 - [ ] 文件下载（Client → 管理界面）
 - [ ] 文件删除/重命名
 - [ ] 路径安全校验（防止目录穿越攻击）
+- [ ] `disk-cleaner` 内置功能 — 磁盘空间清理（从 Phase 6 移入，文件管理的一部分）
 
 ### 7.3 Server 端文件中转
 - [ ] 文件分片中转（不落盘或临时缓存）
@@ -283,10 +328,14 @@
 ## Phase 8 — 并发性能与压力测试
 
 > **目标**: 验证 1000+ 终端并发连接，系统稳定运行。
+>
+> ⚡ **Phase 8 从原位置提前**：当前 gRPC + SQLite 基础架构已定型，早测早发现问题，
+> 定位成本最低。在插件系统（Phase 6）和文件管理（Phase 7）之后做压测，瓶颈定位
+> 会被复杂的功能栈淹没。
 
 ### 8.1 并发优化
 - [ ] Server 端 goroutine 池（避免无限制创建）
-- [ ] 数据库连接池配置
+- [ ] 数据库连接池配置调优
 - [ ] gRPC 连接参数调优（MaxConcurrentStreams、Keepalive）
 - [ ] 内存与 CPU profiling（`pprof`）
 
@@ -376,16 +425,27 @@
 ## 开发顺序总结
 
 ```
-Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4
-                                              ↓
-Phase 5 ←──────────────────────────────────────┘
-   ↓
-Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10 → Phase 11 → Phase 12
+Phase 0 → Phase 1 → Phase 2 → Phase 3
+                                    ↓
+                              Phase 4a (网关 + CLI)
+                                   ╱          ╲
+                          Phase 5 (命令)    Phase 4b (前端)
+                                   ╲          ╱
+                                    Phase 7 (文件)
+                                        ↓
+                                    Phase 8 (压测) ← 提前，早发现瓶颈
+                                        ↓
+                                    Phase 6 (插件)
+                                        ↓
+                              Phase 9 → Phase 10 → Phase 11 → Phase 12
 ```
 
 **关键里程碑**:
+
 1. **M1 (Phase 1 完成)**: Client ↔ Server 互通，心跳正常 — *最小可用*
 2. **M2 (Phase 3 完成)**: 信息采集 + 存储 + 查询 — *核心功能闭环*
-3. **M3 (Phase 4 完成)**: Web 界面可看可操作 — *可演示*
-4. **M4 (Phase 6 完成)**: 插件系统可用 — *扩展能力具备*
-5. **M5 (Phase 8 完成)**: 1000 并发通过 — *性能达标*
+3. **M3 (Phase 4a 完成)**: Admin CLI + HTTP 网关 — *后端可调试可对接*
+4. **M4 (Phase 4b 完成)**: Web 界面可看可操作 — *可演示*
+5. **M5 (Phase 5 完成)**: 命令下发与远程执行 — *可管控*
+6. **M6 (Phase 8 完成)**: 1000 并发通过 — *性能达标*
+7. **M7 (Phase 6 完成)**: 插件系统可用 — *扩展能力具备*

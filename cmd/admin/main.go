@@ -30,6 +30,7 @@ All commands require a running TeamX server (default localhost:50051).`,
 		newKickCmd(ctx),
 		newBlockCmd(ctx),
 		newUnblockCmd(ctx),
+		newServeCmd(ctx),
 	)
 
 	if err := root.Execute(); err != nil {

@@ -8,3 +8,7 @@ plugins:
     out: .
     opt:
       - module=teamx
+  - local: protoc-gen-connect-go
+    out: .
+    opt:
+      - module=teamx

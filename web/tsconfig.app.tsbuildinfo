@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/client.ts","./src/main.tsx","./src/router.tsx","./src/vite-env.d.ts","./src/ws.ts","./src/components/applayout.tsx","./src/gen/teamx_connect.ts","./src/gen/teamx_pb.ts","./src/pages/terminaldetail.tsx","./src/pages/terminallist.tsx"],"version":"5.8.3"}

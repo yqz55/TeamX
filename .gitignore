@@ -36,3 +36,11 @@ Thumbs.db
 
 # description docs
 CLAUDE.md
+
+# Node.js (web/)
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Generated TypeScript proto code
+web/src/gen/

@@ -13,7 +13,7 @@ import (
 // SaveHardwareReport persists a hardware report and its sub-entities in a
 // single transaction. Duplicate report_id (replayed message) is silently
 // ignored via INSERT OR IGNORE.
-func (s *sqliteStore) SaveHardwareReport(clientID string, report *proto.ReportRequest) error {
+func (s *sqliteStore) SaveHardwareReport(sessionID, deviceID string, report *proto.ReportRequest) error {
 	hw, ok := report.Type.(*proto.ReportRequest_Hardware)
 	if !ok || hw.Hardware == nil {
 		return fmt.Errorf("store: report %s has no HardwareInfo payload", report.GetReportId())
@@ -30,12 +30,12 @@ func (s *sqliteStore) SaveHardwareReport(clientID string, report *proto.ReportRe
 	// 1. Main hardware_reports row.
 	const mainSQL = `
 INSERT OR IGNORE INTO hardware_reports
-    (report_id, client_id, created_at, cpu_model, cpu_cores, cpu_threads, cpu_arch,
+    (report_id, device_id, session_id, created_at, cpu_model, cpu_cores, cpu_threads, cpu_arch,
      mem_total_bytes, mem_avail_bytes, mem_used_bytes)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := tx.Exec(mainSQL,
-		report.GetReportId(), clientID, now,
+		report.GetReportId(), deviceID, sessionID, now,
 		info.GetCpu().GetModel(), info.GetCpu().GetCores(), info.GetCpu().GetThreads(),
 		info.GetCpu().GetArchitecture(),
 		int64(info.GetMemory().GetTotalBytes()), int64(info.GetMemory().GetAvailableBytes()),
@@ -109,14 +109,14 @@ VALUES (?, ?, ?, ?)`
 	return tx.Commit()
 }
 
-// GetLatestHardware returns the most recent hardware report for a client as a
+// GetLatestHardware returns the most recent hardware report for a device as a
 // reconstituted proto.HardwareInfo, or nil if none exists.
-func (s *sqliteStore) GetLatestHardware(clientID string) (*proto.HardwareInfo, error) {
+func (s *sqliteStore) GetLatestHardware(deviceID string) (*proto.HardwareInfo, error) {
 	const mainSQL = `
 SELECT report_id, cpu_model, cpu_cores, cpu_threads, cpu_arch,
        mem_total_bytes, mem_avail_bytes, mem_used_bytes
 FROM hardware_reports
-WHERE client_id = ?
+WHERE device_id = ?
 ORDER BY created_at DESC
 LIMIT 1`
 
@@ -126,7 +126,7 @@ LIMIT 1`
 		totalMem, availMem, usedMem int64
 		cpuModel, cpuArch           string
 	)
-	err := s.db.QueryRow(mainSQL, clientID).Scan(
+	err := s.db.QueryRow(mainSQL, deviceID).Scan(
 		&reportID, &cpuModel, &cores, &threads, &cpuArch,
 		&totalMem, &availMem, &usedMem,
 	)
@@ -160,9 +160,9 @@ LIMIT 1`
 	return info, nil
 }
 
-// ListHardwareReports returns hardware snapshots for a client within a time
+// ListHardwareReports returns hardware snapshots for a device within a time
 // range (since/until are RFC3339 strings; empty means unbounded).
-func (s *sqliteStore) ListHardwareReports(clientID, since, until string, limit int) ([]*HardwareSnapshot, error) {
+func (s *sqliteStore) ListHardwareReports(deviceID, since, until string, limit int) ([]*HardwareSnapshot, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -173,9 +173,9 @@ func (s *sqliteStore) ListHardwareReports(clientID, since, until string, limit i
 SELECT report_id, created_at, cpu_model, cpu_cores, cpu_threads, cpu_arch,
        mem_total_bytes, mem_avail_bytes, mem_used_bytes
 FROM hardware_reports
-WHERE client_id = ? %s
+WHERE device_id = ? %s
 ORDER BY created_at DESC LIMIT ?`
-		allArgs := append([]any{clientID}, args...)
+		allArgs := append([]any{deviceID}, args...)
 		allArgs = append(allArgs, limit)
 		return s.db.Query(fmt.Sprintf(base, where), allArgs...)
 	}

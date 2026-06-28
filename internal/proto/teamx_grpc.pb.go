@@ -35,7 +35,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TeamXClient interface {
 	// Register performs a one-shot handshake: client → server.
-	// The server returns a unique client_id the client must use thereafter.
+	// The server returns a session_id the client must use thereafter.
 	Register(ctx context.Context, in *HandshakeRequest, opts ...grpc.CallOption) (*HandshakeResponse, error)
 	// Channel is the main bidirectional communication pipe.
 	// Once registered, the client opens this stream and keeps it alive.
@@ -163,7 +163,7 @@ func (c *teamXClient) UnblockTerminal(ctx context.Context, in *UnblockTerminalRe
 // for forward compatibility.
 type TeamXServer interface {
 	// Register performs a one-shot handshake: client → server.
-	// The server returns a unique client_id the client must use thereafter.
+	// The server returns a session_id the client must use thereafter.
 	Register(context.Context, *HandshakeRequest) (*HandshakeResponse, error)
 	// Channel is the main bidirectional communication pipe.
 	// Once registered, the client opens this stream and keeps it alive.

@@ -33,8 +33,8 @@ func (c *cmdCtx) dial() (proto.TeamXClient, *grpc.ClientConn, error) {
 
 func newListCmd(ctx *cmdCtx) *cobra.Command {
 	var (
-		online  string
-		page    int32
+		online   string
+		page     int32
 		pageSize int32
 	)
 
@@ -82,9 +82,9 @@ func newListCmd(ctx *cmdCtx) *cobra.Command {
 
 func newShowCmd(ctx *cmdCtx) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "show <client-id>",
+		Use:   "show <session-id|device-id>",
 		Short: "Show terminal detail + latest hardware",
-		Long:  "Show terminal summary metadata and the most recent hardware report.",
+		Long:  "Show terminal summary metadata and the most recent hardware report.\nAccepts session_id or device_id (auto-detect by length: 64-char = device_id).",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := ctx.dial()
@@ -93,9 +93,15 @@ func newShowCmd(ctx *cmdCtx) *cobra.Command {
 			}
 			defer conn.Close()
 
-			resp, err := client.GetTerminal(cmd.Context(), &proto.GetTerminalRequest{
-				ClientId: args[0],
-			})
+			req := &proto.GetTerminalRequest{}
+			// Auto-detect: 64-char hex = device_id, otherwise session_id.
+			if len(args[0]) == 64 {
+				req.DeviceId = args[0]
+			} else {
+				req.SessionId = args[0]
+			}
+
+			resp, err := client.GetTerminal(cmd.Context(), req)
 			if err != nil {
 				return err
 			}
@@ -114,9 +120,9 @@ func newHistoryCmd(ctx *cmdCtx) *cobra.Command {
 	var limit int32
 
 	cmd := &cobra.Command{
-		Use:   "history <client-id>",
+		Use:   "history <device-id>",
 		Short: "Show hardware report history",
-		Long:  "List hardware snapshots for a terminal within an optional time range.",
+		Long:  "List hardware snapshots for a device within an optional time range.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := ctx.dial()
@@ -126,7 +132,7 @@ func newHistoryCmd(ctx *cmdCtx) *cobra.Command {
 			defer conn.Close()
 
 			resp, err := client.GetTerminalHistory(cmd.Context(), &proto.GetTerminalHistoryRequest{
-				ClientId: args[0],
+				DeviceId: args[0],
 				Since:    since,
 				Until:    until,
 				Limit:    limit,
@@ -150,9 +156,9 @@ func newHistoryCmd(ctx *cmdCtx) *cobra.Command {
 
 func newKickCmd(ctx *cmdCtx) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "kick <client-id>",
-		Short: "Disconnect a terminal",
-		Long:  "Forcefully disconnect an online terminal.",
+		Use:   "kick <session-id>",
+		Short: "Disconnect a session",
+		Long:  "Forcefully disconnect an online session.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := ctx.dial()
@@ -162,7 +168,7 @@ func newKickCmd(ctx *cmdCtx) *cobra.Command {
 			defer conn.Close()
 
 			resp, err := client.DisconnectTerminal(cmd.Context(), &proto.DisconnectTerminalRequest{
-				ClientId: args[0],
+				SessionId: args[0],
 			})
 			if err != nil {
 				return err
@@ -179,9 +185,9 @@ func newKickCmd(ctx *cmdCtx) *cobra.Command {
 
 func newBlockCmd(ctx *cmdCtx) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "block <client-id>",
-		Short: "Block a terminal",
-		Long:  "Add a terminal to the blocklist and kick it if online.",
+		Use:   "block <device-id>",
+		Short: "Block a device",
+		Long:  "Add a device to the blocklist. All its sessions will be kicked.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := ctx.dial()
@@ -191,7 +197,7 @@ func newBlockCmd(ctx *cmdCtx) *cobra.Command {
 			defer conn.Close()
 
 			resp, err := client.BlockTerminal(cmd.Context(), &proto.BlockTerminalRequest{
-				ClientId: args[0],
+				DeviceId: args[0],
 			})
 			if err != nil {
 				return err
@@ -208,9 +214,9 @@ func newBlockCmd(ctx *cmdCtx) *cobra.Command {
 
 func newUnblockCmd(ctx *cmdCtx) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unblock <client-id>",
-		Short: "Unblock a terminal",
-		Long:  "Remove a terminal from the blocklist.",
+		Use:   "unblock <device-id>",
+		Short: "Unblock a device",
+		Long:  "Remove a device from the blocklist.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := ctx.dial()
@@ -220,7 +226,7 @@ func newUnblockCmd(ctx *cmdCtx) *cobra.Command {
 			defer conn.Close()
 
 			resp, err := client.UnblockTerminal(cmd.Context(), &proto.UnblockTerminalRequest{
-				ClientId: args[0],
+				DeviceId: args[0],
 			})
 			if err != nil {
 				return err

@@ -7,15 +7,16 @@ import (
 	"teamx/internal/proto"
 )
 
-// ClientConn holds the state of a single connected client.
+// ClientConn holds the state of a single connected session.
 type ClientConn struct {
-	ID            string
-	Hostname      string
-	OS            string
-	OSVersion     string
+	SessionID  string
+	DeviceID   string
+	Hostname   string
+	OS         string
+	OSVersion  string
 	ClientVersion string
-	MacAddrs      []string
-	IPAddrs       []string
+	MacAddrs   []string
+	IPAddrs    []string
 
 	// Stream is set when the client opens its Channel. It is nil before the
 	// Channel is established and after the stream closes.
@@ -30,17 +31,17 @@ type ClientConn struct {
 	ConnectedAt   time.Time
 }
 
-// ConnectionManager is a thread-safe registry of connected clients.
+// ConnectionManager is a thread-safe registry of connected sessions.
 type ConnectionManager struct {
 	mu       sync.RWMutex
-	conns    map[string]*ClientConn
-	maxConns int // 0 = unlimited
+	sessions map[string]*ClientConn // keyed by sessionID
+	maxConns int                    // 0 = unlimited
 }
 
 // NewConnectionManager returns an initialized ConnectionManager.
 func NewConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
-		conns: make(map[string]*ClientConn),
+		sessions: make(map[string]*ClientConn),
 	}
 }
 
@@ -51,72 +52,51 @@ func (cm *ConnectionManager) SetMaxConns(n int) {
 	cm.maxConns = n
 }
 
-// MaxConns returns the current connection limit.
-func (cm *ConnectionManager) MaxConns() int {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	return cm.maxConns
-}
-
-// Add inserts a newly registered client. If a client with the same ID already
-// exists it is overwritten. The DisconnectCh is initialized here.
+// Add inserts a newly registered session.
 func (cm *ConnectionManager) Add(conn *ClientConn) {
 	conn.DisconnectCh = make(chan struct{})
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	cm.conns[conn.ID] = conn
+	cm.sessions[conn.SessionID] = conn
 }
 
-// Remove deletes a client from the manager.
-func (cm *ConnectionManager) Remove(clientID string) {
+// Remove deletes a session from the manager.
+func (cm *ConnectionManager) Remove(sessionID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	delete(cm.conns, clientID)
+	delete(cm.sessions, sessionID)
 }
 
-// Get returns the client by ID, or nil if not found.
-func (cm *ConnectionManager) Get(clientID string) *ClientConn {
+// Get returns the session by ID, or nil if not found.
+func (cm *ConnectionManager) Get(sessionID string) *ClientConn {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return cm.conns[clientID]
+	return cm.sessions[sessionID]
 }
 
-// List returns a snapshot of all client IDs.
-func (cm *ConnectionManager) List() []string {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-	ids := make([]string, 0, len(cm.conns))
-	for id := range cm.conns {
-		ids = append(ids, id)
-	}
-	return ids
-}
-
-// Count returns the number of connected clients.
+// Count returns the number of connected sessions.
 func (cm *ConnectionManager) Count() int {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return len(cm.conns)
+	return len(cm.sessions)
 }
 
 // IsFull returns true when maxConns > 0 and the current count has reached it.
 func (cm *ConnectionManager) IsFull() bool {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	return cm.maxConns > 0 && len(cm.conns) >= cm.maxConns
+	return cm.maxConns > 0 && len(cm.sessions) >= cm.maxConns
 }
 
-// Kick closes the DisconnectCh of the given client, which signals the Channel
-// handler to return (and the stream to close). If the client is not found or
-// not online, it is a no-op.
-func (cm *ConnectionManager) Kick(clientID string) {
+// Kick closes the DisconnectCh of the given session, which signals the Channel
+// handler to return (and the stream to close). No-op if not found or offline.
+func (cm *ConnectionManager) Kick(sessionID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	conn, ok := cm.conns[clientID]
+	conn, ok := cm.sessions[sessionID]
 	if !ok || !conn.Online {
 		return
 	}
-	// Close only once; subsequent calls are safe no-ops.
 	select {
 	case <-conn.DisconnectCh:
 		// already closed
@@ -125,12 +105,12 @@ func (cm *ConnectionManager) Kick(clientID string) {
 	}
 }
 
-// RecordHeartbeat updates the last-heartbeat timestamp and marks the client
+// RecordHeartbeat updates the last-heartbeat timestamp and marks the session
 // online.
-func (cm *ConnectionManager) RecordHeartbeat(clientID string) {
+func (cm *ConnectionManager) RecordHeartbeat(sessionID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	conn, ok := cm.conns[clientID]
+	conn, ok := cm.sessions[sessionID]
 	if !ok {
 		return
 	}
@@ -138,22 +118,22 @@ func (cm *ConnectionManager) RecordHeartbeat(clientID string) {
 	conn.Online = true
 }
 
-// MarkOffline sets a client's online status to false.
-func (cm *ConnectionManager) MarkOffline(clientID string) {
+// MarkOffline sets a session's online status to false.
+func (cm *ConnectionManager) MarkOffline(sessionID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	conn, ok := cm.conns[clientID]
+	conn, ok := cm.sessions[sessionID]
 	if !ok {
 		return
 	}
 	conn.Online = false
 }
 
-// SetStream binds a Channel stream to a client and marks it online.
-func (cm *ConnectionManager) SetStream(clientID string, stream proto.TeamX_ChannelServer) {
+// SetStream binds a Channel stream to a session and marks it online.
+func (cm *ConnectionManager) SetStream(sessionID string, stream proto.TeamX_ChannelServer) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	conn, ok := cm.conns[clientID]
+	conn, ok := cm.sessions[sessionID]
 	if !ok {
 		return
 	}
@@ -163,10 +143,10 @@ func (cm *ConnectionManager) SetStream(clientID string, stream proto.TeamX_Chann
 }
 
 // ClearStream removes the stream reference when the Channel closes.
-func (cm *ConnectionManager) ClearStream(clientID string) {
+func (cm *ConnectionManager) ClearStream(sessionID string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	conn, ok := cm.conns[clientID]
+	conn, ok := cm.sessions[sessionID]
 	if !ok {
 		return
 	}
@@ -174,17 +154,17 @@ func (cm *ConnectionManager) ClearStream(clientID string) {
 	conn.Online = false
 }
 
-// HeartbeatChecker periodically scans connections and marks clients offline if
-// their last heartbeat exceeds timeout. If onOffline is non-nil, it is called
-// with each newly-offline client ID (useful for persisting status to a store).
+// HeartbeatChecker periodically scans sessions and marks them offline if their
+// last heartbeat exceeds timeout. If onOffline is non-nil, it is called with
+// each newly-offline session ID (useful for persisting status to a store).
 // Run this in a goroutine.
-func (cm *ConnectionManager) HeartbeatChecker(interval, timeout time.Duration, onOffline func(clientID string)) {
+func (cm *ConnectionManager) HeartbeatChecker(interval, timeout time.Duration, onOffline func(sessionID string)) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for range ticker.C {
 		now := time.Now()
 		cm.mu.Lock()
-		for id, conn := range cm.conns {
+		for id, conn := range cm.sessions {
 			if conn.Online && now.Sub(conn.LastHeartbeat) > timeout {
 				conn.Online = false
 				if onOffline != nil {

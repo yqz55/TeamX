@@ -36,14 +36,14 @@ func main() {
 	}
 	fmt.Printf("total=%d terminals=%d\n", r1.GetTotalCount(), len(r1.GetTerminals()))
 	for _, t := range r1.GetTerminals() {
-		fmt.Printf("  id=%s host=%s os=%s online=%v hb=%s\n",
-			safePrefix(t.GetClientId(), 8), t.GetHostname(), t.GetOs(), t.GetOnline(), safePrefix(t.GetLastHeartbeat(), 19))
+		fmt.Printf("  sid=%s did=%s host=%s os=%s online=%v hb=%s\n",
+			safePrefix(t.GetSessionId(), 8), safePrefix(t.GetDeviceId(), 16), t.GetHostname(), t.GetOs(), t.GetOnline(), safePrefix(t.GetLastHeartbeat(), 19))
 	}
 
 	if len(r1.GetTerminals()) == 0 {
 		log.Fatal("NO TERMINALS — cannot continue")
 	}
-	cid := r1.GetTerminals()[0].GetClientId()
+	sid := r1.GetTerminals()[0].GetSessionId()
 
 	// 2. ListTerminals — online only
 	fmt.Println("\n=== ListTerminals (online only) ===")
@@ -51,9 +51,9 @@ func main() {
 	r1b, _ := client.ListTerminals(ctx, &proto.ListTerminalsRequest{OnlineFilter: &online, PageSize: 10, Page: 1})
 	fmt.Printf("total=%d\n", r1b.GetTotalCount())
 
-	// 3. GetTerminal
+	// 3. GetTerminal (by session_id)
 	fmt.Println("\n=== GetTerminal ===")
-	r2, err := client.GetTerminal(ctx, &proto.GetTerminalRequest{ClientId: cid})
+	r2, err := client.GetTerminal(ctx, &proto.GetTerminalRequest{SessionId: sid})
 	if err != nil {
 		log.Fatalf("GetTerminal: %v", err)
 	}
@@ -67,10 +67,11 @@ func main() {
 		fmt.Println("hardware: nil")
 	}
 
-	// 4. GetTerminalHistory
+	// 4. GetTerminalHistory (by device_id)
 	fmt.Println("\n=== GetTerminalHistory ===")
+	did := r1.GetTerminals()[0].GetDeviceId()
 	r3, err := client.GetTerminalHistory(ctx, &proto.GetTerminalHistoryRequest{
-		ClientId: cid,
+		DeviceId: did,
 		Limit:    5,
 	})
 	if err != nil {

@@ -22,7 +22,7 @@ func main() {
 	client := proto.NewTeamXClient(conn)
 	ctx := context.Background()
 
-	// ---- 1. List terminals, get client_id ----
+	// ---- 1. List terminals, get session_id and device_id ----
 	fmt.Println("=== 1. ListTerminals ===")
 	r1, err := client.ListTerminals(ctx, &proto.ListTerminalsRequest{PageSize: 10})
 	if err != nil {
@@ -31,13 +31,14 @@ func main() {
 	if len(r1.GetTerminals()) == 0 {
 		log.Fatal("No terminals — start a client first")
 	}
-	cid := r1.GetTerminals()[0].GetClientId()
-	fmt.Printf("client=%s host=%s online=%v\n",
-		safeP(cid, 8), r1.GetTerminals()[0].GetHostname(), r1.GetTerminals()[0].GetOnline())
+	sid := r1.GetTerminals()[0].GetSessionId()
+	did := r1.GetTerminals()[0].GetDeviceId()
+	fmt.Printf("session=%s device=%s host=%s online=%v\n",
+		safeP(sid, 8), safeP(did, 16), r1.GetTerminals()[0].GetHostname(), r1.GetTerminals()[0].GetOnline())
 
-	// ---- 2. Kick ----
+	// ---- 2. Kick (by session_id) ----
 	fmt.Println("\n=== 2. DisconnectTerminal (Kick) ===")
-	r2, err := client.DisconnectTerminal(ctx, &proto.DisconnectTerminalRequest{ClientId: cid})
+	r2, err := client.DisconnectTerminal(ctx, &proto.DisconnectTerminalRequest{SessionId: sid})
 	if err != nil {
 		log.Fatalf("DisconnectTerminal: %v", err)
 	}
@@ -49,29 +50,29 @@ func main() {
 	// Verify client went offline.
 	r1b, _ := client.ListTerminals(ctx, &proto.ListTerminalsRequest{PageSize: 10})
 	for _, t := range r1b.GetTerminals() {
-		if t.GetClientId() == cid {
+		if t.GetSessionId() == sid {
 			fmt.Printf("  after kick: online=%v\n", t.GetOnline())
 		}
 	}
 
-	// ---- 3. Block ----
+	// ---- 3. Block (by device_id) ----
 	fmt.Println("\n=== 3. BlockTerminal ===")
-	r3, err := client.BlockTerminal(ctx, &proto.BlockTerminalRequest{ClientId: cid})
+	r3, err := client.BlockTerminal(ctx, &proto.BlockTerminalRequest{DeviceId: did})
 	if err != nil {
 		log.Fatalf("BlockTerminal: %v", err)
 	}
 	fmt.Printf("ok=%v msg=%s\n", r3.GetOk(), r3.GetMessage())
 
-	// Verify blocked flag in DB (query terminal detail).
-	r3b, err := client.GetTerminal(ctx, &proto.GetTerminalRequest{ClientId: cid})
+	// Verify blocked flag in DB (query by device_id).
+	r3b, err := client.GetTerminal(ctx, &proto.GetTerminalRequest{DeviceId: did})
 	if err != nil {
 		log.Fatalf("GetTerminal after block: %v", err)
 	}
 	fmt.Printf("  terminal query ok, hardware=%v\n", r3b.GetLatestHardware() != nil)
 
-	// ---- 4. Unblock ----
+	// ---- 4. Unblock (by device_id) ----
 	fmt.Println("\n=== 4. UnblockTerminal ===")
-	r4, err := client.UnblockTerminal(ctx, &proto.UnblockTerminalRequest{ClientId: cid})
+	r4, err := client.UnblockTerminal(ctx, &proto.UnblockTerminalRequest{DeviceId: did})
 	if err != nil {
 		log.Fatalf("UnblockTerminal: %v", err)
 	}

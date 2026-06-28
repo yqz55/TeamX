@@ -60,14 +60,15 @@ Channel handler (select loop)
 
 ```
 terminals
-  ├── client_id (PK)
+  ├── session_id (PK)
+  ├── device_id (INDEXED)
   ├── hostname, os, os_version, kernel_version, client_version
   ├── mac_addrs (JSON), ip_addrs (JSON)
   ├── first_seen_at, last_seen_at, last_heartbeat
   ├── online (0/1), blocked (0/1)
 
 hardware_reports
-  ├── id (PK), report_id (UNIQUE), client_id (FK)
+  ├── id (PK), report_id (UNIQUE), device_id (INDEXED), session_id
   ├── created_at
   ├── cpu_model, cpu_cores, cpu_threads, cpu_arch
   └── mem_total_bytes, mem_avail_bytes, mem_used_bytes
@@ -100,16 +101,16 @@ command_logs       (Phase 5 预留)
 | RPC | 请求 | 响应 | 说明 |
 |---|---|---|---|
 | `ListTerminals` | `online_filter` (optional) + `page` + `page_size` | `TerminalSummary[]` + `total_count` | 分页列表，支持按在线状态过滤 |
-| `GetTerminal` | `client_id` | `TerminalSummary` + `latest_hardware` | 单终端详情，含最新硬件快照 |
-| `GetTerminalHistory` | `client_id` + `since`/`until` (optional) + `limit` | `HardwareSnapshot[]` | 硬件历史时间序列 |
+| `GetTerminal` | `session_id` 或 `device_id` | `TerminalSummary` + `latest_hardware` | 单终端详情，含最新硬件快照 |
+| `GetTerminalHistory` | `device_id` + `since`/`until` (optional) + `limit` | `HardwareSnapshot[]` | 硬件历史时间序列（按设备） |
 
 ### 管理 RPC 一览
 
 | RPC | 请求 | 响应 | 说明 |
 |---|---|---|---|
-| `DisconnectTerminal` | `client_id` | `ok` + `message` | 踢断在线终端 |
-| `BlockTerminal` | `client_id` | `ok` + `message` | 加入黑名单，同 hostname 无法再次注册 |
-| `UnblockTerminal` | `client_id` | `ok` + `message` | 解除黑名单 |
+| `DisconnectTerminal` | `session_id` | `ok` + `message` | 踢断在线会话（返回 PermissionDenied） |
+| `BlockTerminal` | `device_id` | `ok` + `message` | 封禁设备，同 device_id 无法再次注册 |
+| `UnblockTerminal` | `device_id` | `ok` + `message` | 解封设备 |
 
 ---
 
@@ -147,14 +148,14 @@ cd D:\MyProjects\TeamX
 **预期输出**：
 
 ```
-[store] schema migrated (16 tables)
+[store] schema migrated (17 tables)
 database: teamx.db
 TeamX Server listening on :50051
   heartbeat check interval: 10s, timeout: 30s
   max connections: 0 (0=unlimited)
 ```
 
-> `teamx.db` 文件自动创建在项目根目录，包含 11 张业务表 + SQLite 系统表共 16 个。
+> `teamx.db` 文件自动创建在项目根目录，包含 11 张业务表 + SQLite 系统表共 17 个。
 
 ### 5.2 启动 Client
 
@@ -171,7 +172,7 @@ cd D:\MyProjects\TeamX
 TeamX Client v0.2.0 starting — server=localhost:50051
   hostname=YOUR-PC os=windows
   heartbeat=5s report=10s
-[client] registered: id=<uuid> server_time=2026-06-14T...
+[client] registered: session=<uuid> server_time=2026-06-14T...
 [client] channel opened
 [client] hardware report sent: id=<uuid> cpu= cores=0 mem=0MB
 ```
@@ -205,24 +206,24 @@ func main() {
     defer db.Close()
 
     fmt.Println("=== terminals ===")
-    rows, _ := db.Query("SELECT client_id, hostname, os, online, last_heartbeat, blocked FROM terminals")
+    rows, _ := db.Query("SELECT session_id, device_id, hostname, os, online, last_heartbeat, blocked FROM terminals")
     for rows.Next() {
-        var cid, host, os, lhb string
+        var sid, did, host, os, lhb string
         var online, blocked int
-        rows.Scan(&cid, &host, &os, &online, &lhb, &blocked)
-        fmt.Printf("  id=%s host=%s os=%s online=%d blocked=%d hb=%s\n",
-            cid[:8], host, os, online, blocked, lhb[:19])
+        rows.Scan(&sid, &did, &host, &os, &online, &lhb, &blocked)
+        fmt.Printf("  sid=%s did=%s host=%s os=%s online=%d blocked=%d hb=%s\n",
+            sid[:8], did[:16], host, os, online, blocked, lhb[:19])
     }
     rows.Close()
 
     fmt.Println("\n=== hardware_reports ===")
-    rows2, _ := db.Query("SELECT report_id, client_id, cpu_arch, mem_total_bytes/1048576, created_at FROM hardware_reports ORDER BY created_at DESC LIMIT 5")
+    rows2, _ := db.Query("SELECT report_id, session_id, device_id, cpu_arch, mem_total_bytes/1048576, created_at FROM hardware_reports ORDER BY created_at DESC LIMIT 5")
     for rows2.Next() {
-        var rid, cid, arch, created string
+        var rid, did, sid, arch, created string
         var mem int64
-        rows2.Scan(&rid, &cid, &arch, &mem, &created)
-        fmt.Printf("  rid=%s cid=%s arch=%s mem=%dMB created=%s\n",
-            rid[:8], cid[:8], arch, mem, created[:19])
+        rows2.Scan(&rid, &cid, &archdid, &sid, &arch, &mem, &created)
+        fmt.Printf("  rid=%s did=%s sid=%s arch=%s mem=%dMB created=%s\n",
+            rid[:8], did[:16], sid[:8], arch, mem, created[:19])
     }
     rows2.Close()
 
@@ -241,10 +242,10 @@ go run tools/dump_db.go
 
 ```
 === terminals ===
-  id=xxxxxxxx host=YOUR-PC os=windows online=1 blocked=0 hb=2026-06-14T...
+  sid=xxxxxxxx did=xxxxxxxxxxxxxxxx host=YOUR-PC os=windows online=1 blocked=0 hb=2026-06-14T...
 
 === hardware_reports ===
-  rid=xxxxxxxx cid=xxxxxxxx arch=amd64 mem=0MB created=2026-06-14T...
+  rid=xxxxxxxx did=xxxxxxxxxxxxxxxx sid=xxxxxxxx arch=amd64 mem=0MB created=2026-06-14T...
 
 ✅ 3.1 数据落库验证通过
 ```
@@ -261,7 +262,7 @@ go run tools/check_rpc.go
 ```
 === ListTerminals (all) ===
 total=1 terminals=1
-  id=xxxxxxxx host=YOUR-PC os=windows online=true hb=2026-06-14T...
+  sid=xxxxxxxx did=xxxxxxxxxxxxxxxx host=YOUR-PC os=windows online=true hb=2026-06-14T...
 
 === ListTerminals (online only) ===
 total=1
@@ -308,24 +309,24 @@ ok=true msg=unblocked
 ```
 [channel] admin kick: client=<old-id>
 [client] disconnected — will retry
-[client] registered: id=<new-id> server_time=...
+[client] registered: session=<new-id> server_time=...
 [client] channel opened
 ```
 
-> ✅ **Kick 验证通过**：Client 被踢后自动重连，获得新的 client_id。
+> ✅ **Kick 验证通过**：Client 被踢后自动重连，获得新的 session_id。
 
 ### 5.6 验证 3.3.2 — 黑名单
 
-> 终端 B（Client）已重连为新 client_id，但 hostname 不变。
+> 终端 B（Client）已重连为新 session_id，但 device_id 不变。
 
-1. 查当前终端列表，记下 client_id（新 ID）
-2. Block 该 client_id：
+1. 查当前终端列表，记下 session_id（新 ID）
+2. Block 该 device_id：
 
 ```powershell
 # 用 grpcurl 或 Go 脚本调用
 go run -exec '' tools/block_and_test.go 2>/dev/null || echo "手动测试："
 # Block 后，终端 B Ctrl+C 断开，再次启动
-# 预期：Register 被拒，日志 "[register] rejected: hostname=... is blocked"
+# 预期：Register 被拒，日志 "[register] rejected: device=... is blocked"
 ```
 
 **Server 日志预期**：
@@ -333,7 +334,7 @@ go run -exec '' tools/block_and_test.go 2>/dev/null || echo "手动测试："
 ```
 [admin] block: client=<id> host=YOUR-PC
 # Client 重连时：
-[register] rejected: hostname=YOUR-PC is blocked
+[register] rejected: device=YOUR-PC is blocked
 ```
 
 3. Unblock：
@@ -341,7 +342,7 @@ go run -exec '' tools/block_and_test.go 2>/dev/null || echo "手动测试："
 ```
 [admin] unblock: client=<id>
 # Client 重连：
-[register] client registered: id=<new-id>  # 注册成功
+[register] client registered: session=<new-id>  # 注册成功
 ```
 
 > ✅ **黑名单验证通过**
@@ -381,7 +382,7 @@ go run -exec '' tools/block_and_test.go 2>/dev/null || echo "手动测试："
 关闭 Client 1 后，Client 2 自动重连成功：
 
 ```
-[client] registered: id=<new-id>
+[client] registered: session=<new-id>
 [client] channel opened
 ```
 
@@ -449,7 +450,7 @@ go run tools/check_33.go
 | # | 验证项 | 预期 | 状态 |
 |---|--------|------|------|
 | 1 | 编译 | `go build ./...` 全部通过 | |
-| 2 | Schema 迁移 | Server 启动日志 `schema migrated (16 tables)` | |
+| 2 | Schema 迁移 | Server 启动日志 `schema migrated (17 tables)` | |
 | 3 | 终端落库 | `terminals` 表有注册记录 | |
 | 4 | 硬件落库 | `hardware_reports` 表有上报记录 | |
 | 5 | 去重 | 重复 `report_id` 不产生脏数据（`INSERT OR IGNORE`） | |
@@ -459,9 +460,9 @@ go run tools/check_33.go
 | 9 | ListTerminals (filter) | `online_filter=true/false` 正确过滤 | |
 | 10 | GetTerminal | 返回 TerminalSummary + latest HardwareInfo | |
 | 11 | GetTerminalHistory | 返回 HardwareSnapshot 列表（含 report_id + created_at） | |
-| 12 | Kick | Client 被踢后重连，获得新 client_id | |
-| 13 | Block | blocked=1，同 hostname 再次 Register 被拒 | |
-| 14 | Unblock | blocked=0，同 hostname 可以 Register | |
+| 12 | Kick | Client 被踢后重连，获得新 session_id | |
+| 13 | Block | blocked=1，同 device_id 再次 Register 被拒 | |
+| 14 | Unblock | blocked=0，同 device_id 可以 Register | |
 | 15 | 容量限制 | `--max-connections N` 下第 N+1 个 Client 被拒 | |
 | 16 | Linux 跨主机 | Linux VM Client 上报真实硬件，数据准确 | |
 

@@ -25,7 +25,7 @@ func main() {
 
 	// ---- terminals ----
 	fmt.Println("=== terminals ===")
-	rows, err := db.Query(`SELECT client_id, hostname, os, os_version, client_version,
+	rows, err := db.Query(`SELECT session_id, device_id, hostname, os, os_version, client_version,
 		online, blocked, last_heartbeat, last_seen_at, first_seen_at
 		FROM terminals ORDER BY last_seen_at DESC`)
 	if err != nil {
@@ -33,11 +33,11 @@ func main() {
 	}
 	count := 0
 	for rows.Next() {
-		var cid, host, osName, osVer, cliVer, lhb, lastSeen, firstSeen string
+		var sid, did, host, osName, osVer, cliVer, lhb, lastSeen, firstSeen string
 		var online, blocked int
-		rows.Scan(&cid, &host, &osName, &osVer, &cliVer, &online, &blocked, &lhb, &lastSeen, &firstSeen)
-		fmt.Printf("  id=%s host=%s os=%s ver=%s online=%d blocked=%d\n",
-			safeP(cid, 8), host, osName, cliVer, online, blocked)
+		rows.Scan(&sid, &did, &host, &osName, &osVer, &cliVer, &online, &blocked, &lhb, &lastSeen, &firstSeen)
+		fmt.Printf("  sid=%s did=%s host=%s os=%s ver=%s online=%d blocked=%d\n",
+			safeP(sid, 8), safeP(did, 16), host, osName, cliVer, online, blocked)
 		fmt.Printf("    first=%s last=%s hb=%s\n",
 			safeP(firstSeen, 19), safeP(lastSeen, 19), safeP(lhb, 19))
 		count++
@@ -47,7 +47,7 @@ func main() {
 
 	// ---- hardware_reports ----
 	fmt.Println("\n=== hardware_reports ===")
-	rows2, err := db.Query(`SELECT report_id, client_id, cpu_model, cpu_cores, cpu_threads,
+	rows2, err := db.Query(`SELECT report_id, device_id, session_id, cpu_model, cpu_cores, cpu_threads,
 		cpu_arch, mem_total_bytes/1048576, mem_avail_bytes/1048576, created_at
 		FROM hardware_reports ORDER BY created_at DESC LIMIT 10`)
 	if err != nil {
@@ -55,12 +55,12 @@ func main() {
 	}
 	count2 := 0
 	for rows2.Next() {
-		var rid, cid, model, arch, created string
+		var rid, did, sid, model, arch, created string
 		var cores, threads int
 		var totalMB, availMB int64
-		rows2.Scan(&rid, &cid, &model, &cores, &threads, &arch, &totalMB, &availMB, &created)
-		fmt.Printf("  rid=%s cid=%s cpu=%s cores=%d/%d arch=%s mem=%dMB/%dMB created=%s\n",
-			safeP(rid, 8), safeP(cid, 8), model, cores, threads, arch, totalMB, availMB, safeP(created, 19))
+		rows2.Scan(&rid, &did, &sid, &model, &cores, &threads, &arch, &totalMB, &availMB, &created)
+		fmt.Printf("  rid=%s did=%s sid=%s cpu=%s cores=%d/%d arch=%s mem=%dMB/%dMB created=%s\n",
+			safeP(rid, 8), safeP(did, 16), safeP(sid, 8), model, cores, threads, arch, totalMB, availMB, safeP(created, 19))
 		count2++
 	}
 	rows2.Close()

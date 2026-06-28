@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"teamx/internal/client/collector"
 	"teamx/internal/proto"
@@ -39,6 +41,12 @@ func DefaultConfig() Config {
 	}
 }
 
+// fatalError is returned when connection is permanently rejected (blocked, kicked).
+// The Run loop detects it and stops retrying.
+type fatalError struct{ msg string }
+
+func (e *fatalError) Error() string { return e.msg }
+
 // Client is a TeamX terminal agent. It registers with the server, maintains a
 // bidirectional Channel stream, sends periodic heartbeats, and auto-reconnects
 // with exponential backoff when the connection is lost.
@@ -46,8 +54,9 @@ type Client struct {
 	cfg  Config
 	info SysInfo
 
-	clientID string
-	seq      uint64
+	deviceID  string // stable hardware fingerprint
+	sessionID string // current session (assigned by server on Register)
+	seq       uint64
 
 	col   *collector.Collector   // hardware info collector
 	cache *collector.ReportCache // dedup cache for hardware reports
@@ -94,6 +103,10 @@ func (c *Client) Run(ctx context.Context) error {
 
 		if err := c.connect(ctx); err != nil {
 			log.Printf("[client] connection failed: %v", err)
+			if isFatal(err) {
+				log.Printf("[client] fatal error — stopping: %v", err)
+				return err
+			}
 			attempt++
 			continue
 		}
@@ -120,6 +133,11 @@ func (c *Client) connect(parentCtx context.Context) error {
 
 	// ---- Register ----------------------------------------------------------
 
+	// Compute device fingerprint once (cached locally).
+	if c.deviceID == "" {
+		c.deviceID = GenerateDeviceID()
+	}
+
 	regResp, err := teamx.Register(parentCtx, &proto.HandshakeRequest{
 		Hostname:      c.info.Hostname,
 		Os:            c.info.OS,
@@ -128,17 +146,23 @@ func (c *Client) connect(parentCtx context.Context) error {
 		ClientVersion: c.cfg.ClientVersion,
 		MacAddrs:      c.info.MacAddrs,
 		IpAddrs:       c.info.IPAddrs,
+		DeviceId:      c.deviceID,
 	})
 	if err != nil {
 		return err
 	}
-	c.clientID = regResp.GetClientId()
-	log.Printf("[client] registered: id=%s server_time=%s", c.clientID, regResp.GetServerTime())
+	if !regResp.GetOk() {
+		log.Printf("[client] register rejected: %s", regResp.GetMessage())
+		return &fatalError{regResp.GetMessage()}
+	}
+	c.sessionID = regResp.GetSessionId()
+	log.Printf("[client] registered: session=%s device=%s server_time=%s",
+		c.sessionID[:8], c.deviceID[:16], regResp.GetServerTime())
 
 	// ---- Open Channel ------------------------------------------------------
 
-	// Attach client_id via gRPC metadata so the server can bind the stream.
-	md := metadata.Pairs("client-id", c.clientID)
+	// Attach session_id via gRPC metadata so the server can bind the stream.
+	md := metadata.Pairs("session-id", c.sessionID)
 	channelCtx := metadata.NewOutgoingContext(parentCtx, md)
 
 	stream, err := teamx.Channel(channelCtx)
@@ -241,6 +265,19 @@ func (c *Client) nextSeq() uint64 {
 	defer c.mu.Unlock()
 	c.seq++
 	return c.seq
+}
+
+// isFatal returns true when the error means the client should not retry
+// (e.g. device is blocked, kicked by admin).
+func isFatal(err error) bool {
+	if _, ok := err.(*fatalError); ok {
+		return true
+	}
+	// Also treat PermissionDenied gRPC errors as fatal.
+	if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+		return true
+	}
+	return false
 }
 
 // backoff computes the exponential backoff duration with ±25% jitter.

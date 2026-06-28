@@ -18,56 +18,58 @@ type Store interface {
 
 	// ---- Terminal -----------------------------------------------------------
 
-	// UpsertTerminal inserts a new terminal or updates an existing one (except
+	// UpsertTerminal inserts a new session or updates an existing one (except
 	// first_seen_at, which is preserved). Called on client Register.
-	UpsertTerminal(clientID, hostname, os, osVersion, kernelVersion, clientVersion string,
+	UpsertTerminal(sessionID, deviceID, hostname, os, osVersion, kernelVersion, clientVersion string,
 		macAddrs, ipAddrs []string) error
 
-	// UpdateHeartbeat bumps last_heartbeat and sets online=1.
-	UpdateHeartbeat(clientID string) error
+	// UpdateHeartbeat bumps last_heartbeat and sets online=1 for a session.
+	UpdateHeartbeat(sessionID string) error
 
-	// MarkOffline sets online=0.
-	MarkOffline(clientID string) error
+	// MarkOffline sets online=0 for a session.
+	MarkOffline(sessionID string) error
 
-	// GetTerminal returns a single terminal by client_id, or sql.ErrNoRows.
-	GetTerminal(clientID string) (*Terminal, error)
+	// GetTerminal returns a single terminal row by session_id, or sql.ErrNoRows.
+	GetTerminal(sessionID string) (*Terminal, error)
+
+	// GetTerminalByDevice returns the latest terminal row for a device, or sql.ErrNoRows.
+	GetTerminalByDevice(deviceID string) (*Terminal, error)
 
 	// ListTerminals returns terminals ordered by last_seen_at DESC. Pass nil
 	// for online to return all; pass offset/limit for pagination. Also returns
 	// the total count (before offset/limit).
+	// Each device appears only once (the latest session).
 	ListTerminals(online *bool, offset, limit int) ([]*Terminal, int, error)
 
-	// MarkBlocked sets blocked=1 for a client (adds to blocklist). If the
-	// client doesn't exist, it creates a minimal stub row so future Register
-	// calls for the same hostname are rejected.
-	MarkBlocked(clientID string) error
+	// MarkBlocked sets blocked=1 for all sessions of the given device.
+	MarkBlocked(deviceID string) error
 
-	// UnblockTerminal clears blocked flag.
-	UnblockTerminal(clientID string) error
+	// UnblockTerminal clears blocked flag for all sessions of the device.
+	UnblockTerminal(deviceID string) error
 
-	// IsHostnameBlocked returns true when any terminal with the given hostname
-	// has blocked=1.
-	IsHostnameBlocked(hostname string) (bool, error)
+	// IsDeviceBlocked returns true when any session of the device has blocked=1.
+	IsDeviceBlocked(deviceID string) (bool, error)
 
 	// ---- Hardware -----------------------------------------------------------
 
 	// SaveHardwareReport persists a hardware report and its sub-entities
 	// (disks, nets, BIOS, motherboard) in a single transaction.
-	SaveHardwareReport(clientID string, report *proto.ReportRequest) error
+	SaveHardwareReport(sessionID, deviceID string, report *proto.ReportRequest) error
 
-	// GetLatestHardware returns the most recent hardware report for a client,
+	// GetLatestHardware returns the most recent hardware report for a device,
 	// or nil if none exists.
-	GetLatestHardware(clientID string) (*proto.HardwareInfo, error)
+	GetLatestHardware(deviceID string) (*proto.HardwareInfo, error)
 
-	// ListHardwareReports returns hardware snapshots for a client within a time
+	// ListHardwareReports returns hardware snapshots for a device within a time
 	// range (inclusive). since/until are RFC3339 strings. Pass empty string
 	// for unbounded. limit caps the row count; 0 means default (100).
-	ListHardwareReports(clientID string, since, until string, limit int) ([]*HardwareSnapshot, error)
+	ListHardwareReports(deviceID string, since, until string, limit int) ([]*HardwareSnapshot, error)
 }
 
 // Terminal is the query result for a single terminal row.
 type Terminal struct {
-	ClientID      string
+	SessionID     string
+	DeviceID      string
 	Hostname      string
 	OS            string
 	OSVersion     string

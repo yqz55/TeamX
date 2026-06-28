@@ -58,7 +58,7 @@ const (
 // TeamXClient is a client for the teamx.proto.TeamX service.
 type TeamXClient interface {
 	// Register performs a one-shot handshake: client → server.
-	// The server returns a unique client_id the client must use thereafter.
+	// The server returns a session_id the client must use thereafter.
 	Register(context.Context, *connect.Request[proto.HandshakeRequest]) (*connect.Response[proto.HandshakeResponse], error)
 	// Channel is the main bidirectional communication pipe.
 	// Once registered, the client opens this stream and keeps it alive.
@@ -206,7 +206,7 @@ func (c *teamXClient) UnblockTerminal(ctx context.Context, req *connect.Request[
 // TeamXHandler is an implementation of the teamx.proto.TeamX service.
 type TeamXHandler interface {
 	// Register performs a one-shot handshake: client → server.
-	// The server returns a unique client_id the client must use thereafter.
+	// The server returns a session_id the client must use thereafter.
 	Register(context.Context, *connect.Request[proto.HandshakeRequest]) (*connect.Response[proto.HandshakeResponse], error)
 	// Channel is the main bidirectional communication pipe.
 	// Once registered, the client opens this stream and keeps it alive.

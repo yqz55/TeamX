@@ -10,10 +10,11 @@ import (
 func migrate(db *sql.DB) error {
 	ddl := []string{
 
-		// ---- Terminal --------------------------------------------------------
+		// ---- Terminal (sessions) -------------------------------------------
 
 		`CREATE TABLE IF NOT EXISTS terminals (
-			client_id       TEXT PRIMARY KEY,
+			session_id      TEXT PRIMARY KEY,
+			device_id       TEXT NOT NULL DEFAULT '',
 			hostname        TEXT NOT NULL,
 			os              TEXT NOT NULL,
 			os_version      TEXT NOT NULL DEFAULT '',
@@ -28,12 +29,16 @@ func migrate(db *sql.DB) error {
 			blocked         INTEGER NOT NULL DEFAULT 0
 		)`,
 
+		`CREATE INDEX IF NOT EXISTS idx_terminals_device
+			ON terminals(device_id)`,
+
 		// ---- Hardware --------------------------------------------------------
 
 		`CREATE TABLE IF NOT EXISTS hardware_reports (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
 			report_id       TEXT NOT NULL UNIQUE,
-			client_id       TEXT NOT NULL,
+			device_id       TEXT NOT NULL,
+			session_id      TEXT NOT NULL DEFAULT '',
 			created_at      TEXT NOT NULL,
 			cpu_model       TEXT NOT NULL DEFAULT '',
 			cpu_cores       INTEGER NOT NULL DEFAULT 0,
@@ -41,12 +46,11 @@ func migrate(db *sql.DB) error {
 			cpu_arch        TEXT NOT NULL DEFAULT '',
 			mem_total_bytes INTEGER NOT NULL DEFAULT 0,
 			mem_avail_bytes INTEGER NOT NULL DEFAULT 0,
-			mem_used_bytes  INTEGER NOT NULL DEFAULT 0,
-			FOREIGN KEY (client_id) REFERENCES terminals(client_id)
+			mem_used_bytes  INTEGER NOT NULL DEFAULT 0
 		)`,
 
-		`CREATE INDEX IF NOT EXISTS idx_hw_reports_client
-			ON hardware_reports(client_id, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_hw_reports_device
+			ON hardware_reports(device_id, created_at DESC)`,
 
 		`CREATE TABLE IF NOT EXISTS hardware_disks (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,24 +103,23 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS software_items (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
 			report_id       TEXT NOT NULL,
-			client_id       TEXT NOT NULL,
+			session_id      TEXT NOT NULL,
 			name            TEXT NOT NULL DEFAULT '',
 			version         TEXT NOT NULL DEFAULT '',
 			publisher       TEXT NOT NULL DEFAULT '',
 			install_date    TEXT NOT NULL DEFAULT '',
-			created_at      TEXT NOT NULL,
-			FOREIGN KEY (client_id) REFERENCES terminals(client_id)
+			created_at      TEXT NOT NULL
 		)`,
 
-		`CREATE INDEX IF NOT EXISTS idx_sw_items_client
-			ON software_items(client_id, name)`,
+		`CREATE INDEX IF NOT EXISTS idx_sw_items_session
+			ON software_items(session_id, name)`,
 
 		// ---- Users (Phase 6) -------------------------------------------------
 
 		`CREATE TABLE IF NOT EXISTS user_accounts (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
 			report_id       TEXT NOT NULL,
-			client_id       TEXT NOT NULL,
+			session_id      TEXT NOT NULL,
 			username        TEXT NOT NULL DEFAULT '',
 			uid             TEXT NOT NULL DEFAULT '',
 			group_name      TEXT NOT NULL DEFAULT '',
@@ -124,8 +127,7 @@ func migrate(db *sql.DB) error {
 			shell           TEXT NOT NULL DEFAULT '',
 			is_admin        INTEGER NOT NULL DEFAULT 0,
 			is_disabled     INTEGER NOT NULL DEFAULT 0,
-			created_at      TEXT NOT NULL,
-			FOREIGN KEY (client_id) REFERENCES terminals(client_id)
+			created_at      TEXT NOT NULL
 		)`,
 
 		// ---- Processes (Phase 6) ---------------------------------------------
@@ -133,7 +135,7 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS process_items (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
 			report_id       TEXT NOT NULL,
-			client_id       TEXT NOT NULL,
+			session_id      TEXT NOT NULL,
 			pid             INTEGER NOT NULL DEFAULT 0,
 			ppid            INTEGER NOT NULL DEFAULT 0,
 			name            TEXT NOT NULL DEFAULT '',
@@ -142,8 +144,7 @@ func migrate(db *sql.DB) error {
 			mem_bytes       INTEGER NOT NULL DEFAULT 0,
 			status          TEXT NOT NULL DEFAULT '',
 			cmdline         TEXT NOT NULL DEFAULT '',
-			created_at      TEXT NOT NULL,
-			FOREIGN KEY (client_id) REFERENCES terminals(client_id)
+			created_at      TEXT NOT NULL
 		)`,
 
 		// ---- Peripherals (Phase 6) -------------------------------------------
@@ -151,15 +152,14 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS peripheral_devices (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
 			report_id       TEXT NOT NULL,
-			client_id       TEXT NOT NULL,
+			session_id      TEXT NOT NULL,
 			device_type     TEXT NOT NULL DEFAULT '',
 			name            TEXT NOT NULL DEFAULT '',
 			vendor_id       TEXT NOT NULL DEFAULT '',
 			product_id      TEXT NOT NULL DEFAULT '',
 			serial          TEXT NOT NULL DEFAULT '',
 			extra           TEXT NOT NULL DEFAULT '{}',
-			created_at      TEXT NOT NULL,
-			FOREIGN KEY (client_id) REFERENCES terminals(client_id)
+			created_at      TEXT NOT NULL
 		)`,
 
 		// ---- Command logs (Phase 5) ------------------------------------------
@@ -167,7 +167,7 @@ func migrate(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS command_logs (
 			id              INTEGER PRIMARY KEY AUTOINCREMENT,
 			command_id      TEXT NOT NULL UNIQUE,
-			client_id       TEXT NOT NULL,
+			session_id      TEXT NOT NULL,
 			type            TEXT NOT NULL DEFAULT '',
 			params          TEXT NOT NULL DEFAULT '{}',
 			status          TEXT NOT NULL DEFAULT 'Pending',
@@ -177,12 +177,11 @@ func migrate(db *sql.DB) error {
 			error_message   TEXT NOT NULL DEFAULT '',
 			created_at      TEXT NOT NULL,
 			started_at      TEXT,
-			finished_at     TEXT,
-			FOREIGN KEY (client_id) REFERENCES terminals(client_id)
+			finished_at     TEXT
 		)`,
 
-		`CREATE INDEX IF NOT EXISTS idx_cmd_logs_client
-			ON command_logs(client_id, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_cmd_logs_session
+			ON command_logs(session_id, created_at DESC)`,
 	}
 
 	for _, stmt := range ddl {

@@ -42,14 +42,15 @@ func printTerminalList(terminals []*proto.TerminalSummary, total int32, jsonMode
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "CLIENT ID\tHOSTNAME\tOS\tVERSION\tSTATUS\tLAST HEARTBEAT")
+	fmt.Fprintln(w, "SESSION ID\tDEVICE ID\tHOSTNAME\tOS\tVERSION\tSTATUS\tLAST HEARTBEAT")
 	for _, t := range terminals {
 		status := "OFFLINE"
 		if t.Online {
 			status = "ONLINE"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			truncate(t.ClientId, 36),
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			truncate(t.SessionId, 36),
+			truncate(t.DeviceId, 16),
 			t.Hostname,
 			t.Os,
 			t.ClientVersion,
@@ -79,7 +80,8 @@ func printTerminalDetail(resp *proto.GetTerminalResponse, jsonMode bool) {
 
 	s := resp.Summary
 	fmt.Println("Summary:")
-	fmt.Printf("  Client ID:    %s\n", s.ClientId)
+	fmt.Printf("  Session ID:   %s\n", s.SessionId)
+	fmt.Printf("  Device ID:    %s\n", s.DeviceId)
 	fmt.Printf("  Hostname:     %s\n", s.Hostname)
 	fmt.Printf("  OS:           %s (%s)\n", s.Os, s.OsVersion)
 	fmt.Printf("  Version:      %s\n", s.ClientVersion)
@@ -184,7 +186,7 @@ func printTerminalHistory(resp *proto.GetTerminalHistoryResponse, jsonMode bool)
 		)
 	}
 	w.Flush()
-	fmt.Printf("---\n%d snapshots for %s\n", len(resp.Snapshots), resp.ClientId)
+	fmt.Printf("---\n%d snapshots for device %s\n", len(resp.Snapshots), resp.DeviceId)
 }
 
 // ---- Simple result (kick / block / unblock) ----------------------------------

@@ -122,13 +122,13 @@ func (g *Gateway) UnblockTerminal(ctx context.Context, req *connect.Request[prot
 // WebSocket Hub
 // =============================================================================
 
-// onlineSnapshot maps client_id → online status at the last poll.
+// onlineSnapshot maps session_id → online status at the last poll.
 type onlineSnapshot map[string]bool
 
 // wsEvent is broadcast to WebSocket clients on state change.
 type wsEvent struct {
 	Type      string `json:"type"`      // "online" or "offline"
-	ClientID  string `json:"client_id"`
+	SessionID string `json:"session_id"`
 	Hostname  string `json:"hostname"`
 	Timestamp string `json:"timestamp"`
 }
@@ -193,7 +193,7 @@ func (h *wsHub) poll(broadcast bool) {
 
 	current := make(onlineSnapshot)
 	for _, t := range resp.Terminals {
-		current[t.ClientId] = t.Online
+		current[t.SessionId] = t.Online
 	}
 
 	if !broadcast {
@@ -208,7 +208,7 @@ func (h *wsHub) poll(broadcast bool) {
 	for id, online := range current {
 		was, known := h.last[id]
 		if known && was != online {
-			evt := wsEvent{ClientID: id, Timestamp: now}
+			evt := wsEvent{SessionID: id, Timestamp: now}
 			if online {
 				evt.Type = "online"
 				evt.Hostname = h.findHostname(resp.Terminals, id)
@@ -227,9 +227,9 @@ func (h *wsHub) poll(broadcast bool) {
 	}
 }
 
-func (h *wsHub) findHostname(terminals []*proto.TerminalSummary, clientID string) string {
+func (h *wsHub) findHostname(terminals []*proto.TerminalSummary, sessionID string) string {
 	for _, t := range terminals {
-		if t.ClientId == clientID {
+		if t.SessionId == sessionID {
 			return t.Hostname
 		}
 	}

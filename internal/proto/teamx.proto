@@ -19,7 +19,7 @@ option go_package = "teamx/internal/proto";
 
 service TeamX {
     // Register performs a one-shot handshake: client → server.
-    // The server returns a unique client_id the client must use thereafter.
+    // The server returns a session_id the client must use thereafter.
     rpc Register(HandshakeRequest) returns (HandshakeResponse);
 
     // Channel is the main bidirectional communication pipe.
@@ -55,13 +55,14 @@ message HandshakeRequest {
     string os_version         = 3;  // 操作系统版本
     string kernel_version     = 4;  // 内核版本
     string client_version     = 5;  // TeamX client 版本号
-    repeated string mac_addrs = 6;  // MAC 地址列表（硬件指纹）
+    repeated string mac_addrs = 6;  // MAC 地址列表
     repeated string ip_addrs  = 7;  // IP 地址列表
+    string device_id          = 8;  // 设备指纹 (SHA-256, 64 hex chars)
 }
 
 message HandshakeResponse {
     bool   ok          = 1;  // true = 注册成功; false = 被拒绝（黑名单）
-    string client_id   = 2;  // server 分配的唯一 ID (UUID v4)
+    string session_id  = 2;  // server 分配的当前会话 ID (UUID v4)
     string server_time = 3;  // 服务器当前时间 (RFC 3339), 用于客户端校时
     string message     = 4;  // 拒绝原因或欢迎信息
 }
@@ -69,6 +70,8 @@ message HandshakeResponse {
 // =============================================================================
 // Channel (Bidi Stream)  — 所有消息带 seq
 // =============================================================================
+//
+// 客户端必须在 gRPC metadata 中携带 "session-id" header。
 
 message ClientMessage {
     uint64 seq = 1;  // 单调递增序号, 服务端用于去重和乱序检测
@@ -275,7 +278,7 @@ message ListTerminalsResponse {
 }
 
 message TerminalSummary {
-    string client_id      = 1;
+    string session_id     = 1;
     string hostname       = 2;
     string os             = 3;
     string os_version     = 4;
@@ -283,10 +286,12 @@ message TerminalSummary {
     bool   online         = 6;
     string last_heartbeat = 7;  // RFC3339, empty if never
     string last_seen_at   = 8;
+    string device_id      = 9;  // 设备指纹
 }
 
 message GetTerminalRequest {
-    string client_id = 1;
+    string session_id = 1;  // 查询当前会话（与 device_id 二选一）
+    string device_id  = 2;  // 查询设备（与 session_id 二选一，优先 device_id）
 }
 
 message GetTerminalResponse {
@@ -295,14 +300,14 @@ message GetTerminalResponse {
 }
 
 message GetTerminalHistoryRequest {
-    string client_id = 1;
+    string device_id = 1;  // 按设备查询历史
     string since     = 2;  // RFC3339, optional
     string until     = 3;  // RFC3339, optional
     int32  limit     = 4;  // default 100
 }
 
 message GetTerminalHistoryResponse {
-    string client_id                    = 1;
+    string device_id                    = 1;
     repeated HardwareSnapshot snapshots = 2;
 }
 
@@ -316,8 +321,9 @@ message HardwareSnapshot {
 // Admin / Control messages (Phase 3.3)
 // =============================================================================
 
+// DisconnectTerminal kicks an active session.
 message DisconnectTerminalRequest {
-    string client_id = 1;
+    string session_id = 1;  // 踢出指定会话
 }
 
 message DisconnectTerminalResponse {
@@ -325,8 +331,9 @@ message DisconnectTerminalResponse {
     string message = 2;  // "kicked" or "not found" or "offline"
 }
 
+// BlockTerminal blocks a device by its device_id.
 message BlockTerminalRequest {
-    string client_id = 1;
+    string device_id = 1;  // 封禁设备
 }
 
 message BlockTerminalResponse {
@@ -334,8 +341,9 @@ message BlockTerminalResponse {
     string message = 2;
 }
 
+// UnblockTerminal unblocks a device by its device_id.
 message UnblockTerminalRequest {
-    string client_id = 1;
+    string device_id = 1;  // 解封设备
 }
 
 message UnblockTerminalResponse {
@@ -387,9 +395,9 @@ message FileData {
 // =============================================================================
 //
 // 0       OK                      成功
-// 1000    ERR_HANDSHAKE_DENIED    客户端被黑名单拒绝
-// 1001    ERR_CLIENT_NOT_FOUND    指定 client_id 不存在
-// 1002    ERR_CLIENT_OFFLINE      目标客户端离线
+// 1000    ERR_HANDSHAKE_DENIED    设备被黑名单拒绝
+// 1001    ERR_SESSION_NOT_FOUND   指定 session_id 不存在
+// 1002    ERR_SESSION_OFFLINE     目标会话离线
 // 2000    ERR_COMMAND_TIMEOUT     命令执行超时
 // 2001    ERR_COMMAND_UNKNOWN     未知命令类型
 // 3000    ERR_FILE_NOT_FOUND      文件不存在

@@ -14,7 +14,8 @@ TeamX uses **gRPC** as its communication framework with **Protobuf** as the IDL.
 
 ## 1. Register (Unary)
 
-Client sends its identity to the server; the server assigns a unique `client_id`.
+Client sends its hardware-backed device fingerprint (`device_id`) to the server;
+the server assigns a unique `session_id` for this connection and checks the blocklist.
 
 ### Flow
 
@@ -22,10 +23,11 @@ Client sends its identity to the server; the server assigns a unique `client_id`
 Client                            Server
    |                                 |
    |--- HandshakeRequest ----------->|
+   |     (device_id + hostname)      |
    |                                 |
    |<-- HandshakeResponse -----------|
    |                                 |
-   | (use client_id for all          |
+   | (use session_id for all         |
    |  subsequent Channel calls)      |
 ```
 
@@ -38,15 +40,16 @@ Client                            Server
 | `os_version` | string | Human-readable OS version |
 | `kernel_version` | string | Kernel / build version |
 | `client_version` | string | TeamX client semver (e.g. `0.2.0`) |
-| `mac_addrs` | []string | All MAC addresses (hardware fingerprint) |
+| `mac_addrs` | []string | All MAC addresses |
 | `ip_addrs` | []string | All non-loopback IP addresses |
+| `device_id` | string | Hardware fingerprint (SHA-256 of DMI UUID + MAC + disk serial + machine-id) |
 
 ### HandshakeResponse
 
 | Field | Type | Description |
 |---|---|---|
-| `ok` | bool | `true` = registered; `false` = denied |
-| `client_id` | string | Server-assigned UUID v4 |
+| `ok` | bool | `true` = registered; `false` = denied (device blocked) |
+| `session_id` | string | Server-assigned session UUID v4 |
 | `server_time` | string | Server clock (RFC 3339), for time sync |
 | `message` | string | Welcome message or denial reason |
 
@@ -54,7 +57,7 @@ Client                            Server
 
 ## 2. Channel (Bidirectional Stream)
 
-The main communication pipe. After `Register`, the client opens a single long-lived `Channel` stream. Both sides send frames independently.
+The main communication pipe. After `Register`, the client opens a single long-lived `Channel` stream. Both sides send frames independently. The client attaches its `session_id` via gRPC metadata header `session-id`.
 
 ### Stream Messages
 
@@ -245,9 +248,9 @@ Errors are transmitted via **gRPC status metadata** (`grpc-status-details-bin`).
 | Code | Name | Description |
 |---|---|---|
 | 0 | `OK` | Success |
-| **1000** | `ERR_HANDSHAKE_DENIED` | Client denied by blacklist |
-| **1001** | `ERR_CLIENT_NOT_FOUND` | Specified `client_id` does not exist |
-| **1002** | `ERR_CLIENT_OFFLINE` | Target client is offline |
+| **1000** | `ERR_HANDSHAKE_DENIED` | Device denied by blocklist |
+| **1001** | `ERR_SESSION_NOT_FOUND` | Specified `session_id` does not exist |
+| **1002** | `ERR_SESSION_OFFLINE` | Target session is offline |
 | **2000** | `ERR_COMMAND_TIMEOUT` | Command execution exceeded timeout |
 | **2001** | `ERR_COMMAND_UNKNOWN` | Unknown command type string |
 | **3000** | `ERR_FILE_NOT_FOUND` | Requested file path does not exist |

@@ -28,8 +28,9 @@ type HandshakeRequest struct {
 	OsVersion     string                 `protobuf:"bytes,3,opt,name=os_version,json=osVersion,proto3" json:"os_version,omitempty"`             // 操作系统版本
 	KernelVersion string                 `protobuf:"bytes,4,opt,name=kernel_version,json=kernelVersion,proto3" json:"kernel_version,omitempty"` // 内核版本
 	ClientVersion string                 `protobuf:"bytes,5,opt,name=client_version,json=clientVersion,proto3" json:"client_version,omitempty"` // TeamX client 版本号
-	MacAddrs      []string               `protobuf:"bytes,6,rep,name=mac_addrs,json=macAddrs,proto3" json:"mac_addrs,omitempty"`                // MAC 地址列表（硬件指纹）
+	MacAddrs      []string               `protobuf:"bytes,6,rep,name=mac_addrs,json=macAddrs,proto3" json:"mac_addrs,omitempty"`                // MAC 地址列表
 	IpAddrs       []string               `protobuf:"bytes,7,rep,name=ip_addrs,json=ipAddrs,proto3" json:"ip_addrs,omitempty"`                   // IP 地址列表
+	DeviceId      string                 `protobuf:"bytes,8,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`                // 设备指纹 (SHA-256, 64 hex chars)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -113,10 +114,17 @@ func (x *HandshakeRequest) GetIpAddrs() []string {
 	return nil
 }
 
+func (x *HandshakeRequest) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
 type HandshakeResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`                                  // true = 注册成功; false = 被拒绝（黑名单）
-	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`       // server 分配的唯一 ID (UUID v4)
+	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`    // server 分配的当前会话 ID (UUID v4)
 	ServerTime    string                 `protobuf:"bytes,3,opt,name=server_time,json=serverTime,proto3" json:"server_time,omitempty"` // 服务器当前时间 (RFC 3339), 用于客户端校时
 	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`                         // 拒绝原因或欢迎信息
 	unknownFields protoimpl.UnknownFields
@@ -160,9 +168,9 @@ func (x *HandshakeResponse) GetOk() bool {
 	return false
 }
 
-func (x *HandshakeResponse) GetClientId() string {
+func (x *HandshakeResponse) GetSessionId() string {
 	if x != nil {
-		return x.ClientId
+		return x.SessionId
 	}
 	return ""
 }
@@ -2005,7 +2013,7 @@ func (x *ListTerminalsResponse) GetTotalCount() int32 {
 
 type TerminalSummary struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	Hostname      string                 `protobuf:"bytes,2,opt,name=hostname,proto3" json:"hostname,omitempty"`
 	Os            string                 `protobuf:"bytes,3,opt,name=os,proto3" json:"os,omitempty"`
 	OsVersion     string                 `protobuf:"bytes,4,opt,name=os_version,json=osVersion,proto3" json:"os_version,omitempty"`
@@ -2013,6 +2021,7 @@ type TerminalSummary struct {
 	Online        bool                   `protobuf:"varint,6,opt,name=online,proto3" json:"online,omitempty"`
 	LastHeartbeat string                 `protobuf:"bytes,7,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"` // RFC3339, empty if never
 	LastSeenAt    string                 `protobuf:"bytes,8,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,9,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"` // 设备指纹
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2047,9 +2056,9 @@ func (*TerminalSummary) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *TerminalSummary) GetClientId() string {
+func (x *TerminalSummary) GetSessionId() string {
 	if x != nil {
-		return x.ClientId
+		return x.SessionId
 	}
 	return ""
 }
@@ -2103,9 +2112,17 @@ func (x *TerminalSummary) GetLastSeenAt() string {
 	return ""
 }
 
+func (x *TerminalSummary) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
 type GetTerminalRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 查询当前会话（与 device_id 二选一）
+	DeviceId      string                 `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`    // 查询设备（与 session_id 二选一，优先 device_id）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2140,9 +2157,16 @@ func (*GetTerminalRequest) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{28}
 }
 
-func (x *GetTerminalRequest) GetClientId() string {
+func (x *GetTerminalRequest) GetSessionId() string {
 	if x != nil {
-		return x.ClientId
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *GetTerminalRequest) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
 	}
 	return ""
 }
@@ -2201,10 +2225,10 @@ func (x *GetTerminalResponse) GetLatestHardware() *HardwareInfo {
 
 type GetTerminalHistoryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
-	Since         string                 `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`  // RFC3339, optional
-	Until         string                 `protobuf:"bytes,3,opt,name=until,proto3" json:"until,omitempty"`  // RFC3339, optional
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // default 100
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"` // 按设备查询历史
+	Since         string                 `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`                       // RFC3339, optional
+	Until         string                 `protobuf:"bytes,3,opt,name=until,proto3" json:"until,omitempty"`                       // RFC3339, optional
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                      // default 100
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2239,9 +2263,9 @@ func (*GetTerminalHistoryRequest) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{30}
 }
 
-func (x *GetTerminalHistoryRequest) GetClientId() string {
+func (x *GetTerminalHistoryRequest) GetDeviceId() string {
 	if x != nil {
-		return x.ClientId
+		return x.DeviceId
 	}
 	return ""
 }
@@ -2269,7 +2293,7 @@ func (x *GetTerminalHistoryRequest) GetLimit() int32 {
 
 type GetTerminalHistoryResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	Snapshots     []*HardwareSnapshot    `protobuf:"bytes,2,rep,name=snapshots,proto3" json:"snapshots,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2305,9 +2329,9 @@ func (*GetTerminalHistoryResponse) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{31}
 }
 
-func (x *GetTerminalHistoryResponse) GetClientId() string {
+func (x *GetTerminalHistoryResponse) GetDeviceId() string {
 	if x != nil {
-		return x.ClientId
+		return x.DeviceId
 	}
 	return ""
 }
@@ -2379,9 +2403,10 @@ func (x *HardwareSnapshot) GetInfo() *HardwareInfo {
 	return nil
 }
 
+// DisconnectTerminal kicks an active session.
 type DisconnectTerminalRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"` // 踢出指定会话
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2416,9 +2441,9 @@ func (*DisconnectTerminalRequest) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{33}
 }
 
-func (x *DisconnectTerminalRequest) GetClientId() string {
+func (x *DisconnectTerminalRequest) GetSessionId() string {
 	if x != nil {
-		return x.ClientId
+		return x.SessionId
 	}
 	return ""
 }
@@ -2475,9 +2500,10 @@ func (x *DisconnectTerminalResponse) GetMessage() string {
 	return ""
 }
 
+// BlockTerminal blocks a device by its device_id.
 type BlockTerminalRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"` // 封禁设备
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2512,9 +2538,9 @@ func (*BlockTerminalRequest) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{35}
 }
 
-func (x *BlockTerminalRequest) GetClientId() string {
+func (x *BlockTerminalRequest) GetDeviceId() string {
 	if x != nil {
-		return x.ClientId
+		return x.DeviceId
 	}
 	return ""
 }
@@ -2571,9 +2597,10 @@ func (x *BlockTerminalResponse) GetMessage() string {
 	return ""
 }
 
+// UnblockTerminal unblocks a device by its device_id.
 type UnblockTerminalRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClientId      string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"` // 解封设备
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2608,9 +2635,9 @@ func (*UnblockTerminalRequest) Descriptor() ([]byte, []int) {
 	return file_teamx_proto_rawDescGZIP(), []int{37}
 }
 
-func (x *UnblockTerminalRequest) GetClientId() string {
+func (x *UnblockTerminalRequest) GetDeviceId() string {
 	if x != nil {
-		return x.ClientId
+		return x.DeviceId
 	}
 	return ""
 }
@@ -3006,7 +3033,7 @@ var File_teamx_proto protoreflect.FileDescriptor
 
 const file_teamx_proto_rawDesc = "" +
 	"\n" +
-	"\vteamx.proto\x12\vteamx.proto\"\xe3\x01\n" +
+	"\vteamx.proto\x12\vteamx.proto\"\x80\x02\n" +
 	"\x10HandshakeRequest\x12\x1a\n" +
 	"\bhostname\x18\x01 \x01(\tR\bhostname\x12\x0e\n" +
 	"\x02os\x18\x02 \x01(\tR\x02os\x12\x1d\n" +
@@ -3015,10 +3042,12 @@ const file_teamx_proto_rawDesc = "" +
 	"\x0ekernel_version\x18\x04 \x01(\tR\rkernelVersion\x12%\n" +
 	"\x0eclient_version\x18\x05 \x01(\tR\rclientVersion\x12\x1b\n" +
 	"\tmac_addrs\x18\x06 \x03(\tR\bmacAddrs\x12\x19\n" +
-	"\bip_addrs\x18\a \x03(\tR\aipAddrs\"{\n" +
+	"\bip_addrs\x18\a \x03(\tR\aipAddrs\x12\x1b\n" +
+	"\tdevice_id\x18\b \x01(\tR\bdeviceId\"}\n" +
 	"\x11HandshakeResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1b\n" +
-	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12\x1f\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12\x1f\n" +
 	"\vserver_time\x18\x03 \x01(\tR\n" +
 	"serverTime\x12\x18\n" +
 	"\amessage\x18\x04 \x01(\tR\amessage\"\xee\x01\n" +
@@ -3179,9 +3208,10 @@ const file_teamx_proto_rawDesc = "" +
 	"\x15ListTerminalsResponse\x12:\n" +
 	"\tterminals\x18\x01 \x03(\v2\x1c.teamx.proto.TerminalSummaryR\tterminals\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"\x81\x02\n" +
-	"\x0fTerminalSummary\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x1a\n" +
+	"totalCount\"\xa0\x02\n" +
+	"\x0fTerminalSummary\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x0e\n" +
 	"\x02os\x18\x03 \x01(\tR\x02os\x12\x1d\n" +
 	"\n" +
@@ -3190,37 +3220,41 @@ const file_teamx_proto_rawDesc = "" +
 	"\x06online\x18\x06 \x01(\bR\x06online\x12%\n" +
 	"\x0elast_heartbeat\x18\a \x01(\tR\rlastHeartbeat\x12 \n" +
 	"\flast_seen_at\x18\b \x01(\tR\n" +
-	"lastSeenAt\"1\n" +
-	"\x12GetTerminalRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\"\x91\x01\n" +
+	"lastSeenAt\x12\x1b\n" +
+	"\tdevice_id\x18\t \x01(\tR\bdeviceId\"P\n" +
+	"\x12GetTerminalRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +
+	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\"\x91\x01\n" +
 	"\x13GetTerminalResponse\x126\n" +
 	"\asummary\x18\x01 \x01(\v2\x1c.teamx.proto.TerminalSummaryR\asummary\x12B\n" +
 	"\x0flatest_hardware\x18\x02 \x01(\v2\x19.teamx.proto.HardwareInfoR\x0elatestHardware\"z\n" +
 	"\x19GetTerminalHistoryRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x14\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12\x14\n" +
 	"\x05since\x18\x02 \x01(\tR\x05since\x12\x14\n" +
 	"\x05until\x18\x03 \x01(\tR\x05until\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\"v\n" +
 	"\x1aGetTerminalHistoryResponse\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12;\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12;\n" +
 	"\tsnapshots\x18\x02 \x03(\v2\x1d.teamx.proto.HardwareSnapshotR\tsnapshots\"}\n" +
 	"\x10HardwareSnapshot\x12\x1b\n" +
 	"\treport_id\x18\x01 \x01(\tR\breportId\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\tR\tcreatedAt\x12-\n" +
-	"\x04info\x18\x03 \x01(\v2\x19.teamx.proto.HardwareInfoR\x04info\"8\n" +
-	"\x19DisconnectTerminalRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\"F\n" +
+	"\x04info\x18\x03 \x01(\v2\x19.teamx.proto.HardwareInfoR\x04info\":\n" +
+	"\x19DisconnectTerminalRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"F\n" +
 	"\x1aDisconnectTerminalResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"3\n" +
 	"\x14BlockTerminalRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\"A\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\"A\n" +
 	"\x15BlockTerminalResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"5\n" +
 	"\x16UnblockTerminalRequest\x12\x1b\n" +
-	"\tclient_id\x18\x01 \x01(\tR\bclientId\"C\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\"C\n" +
 	"\x17UnblockTerminalResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\xff\x01\n" +

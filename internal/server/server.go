@@ -109,7 +109,13 @@ func (s *TeamXServer) Channel(stream proto.TeamX_ChannelServer) error {
 
 	// Bind this stream to the client.
 	s.cm.SetStream(clientID, stream)
-	defer s.cm.ClearStream(clientID)
+	defer func() {
+		s.cm.ClearStream(clientID)
+		// Persist offline status to store — ClearStream only updates memory.
+		if err := s.store.MarkOffline(clientID); err != nil {
+			log.Printf("[channel] store mark offline failed: client=%s err=%v", clientID, err)
+		}
+	}()
 
 	log.Printf("[channel] stream opened: client=%s", clientID)
 

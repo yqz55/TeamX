@@ -350,70 +350,71 @@ TeamX Admin Gateway listening on :8080
 
 ### 6.2 ListTerminals
 
-```bash
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/ListTerminals \
-  -H "Content-Type: application/json" \
-  -d '{"page":1,"page_size":50}'
+```powershell
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/ListTerminals ^
+  -H "Content-Type: application/json" ^
+  -d "{\"page\":1,\"page_size\":50}"
 ```
 
 **预期输出**：JSON 含 `terminals` 数组（每项含 `session_id` + `device_id`）和 `totalCount`。
 
 ### 6.3 GetTerminal
 
-```bash
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/GetTerminal \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"<session-id>"}'
+```powershell
+rem 按 session_id 查询：
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/GetTerminal ^
+  -H "Content-Type: application/json" ^
+  -d "{\"session_id\":\"<session-id>\"}"
 
-# 或按 device_id：
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/GetTerminal \
-  -H "Content-Type: application/json" \
-  -d '{"device_id":"<device-id>"}'
+rem 或按 device_id 查询：
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/GetTerminal ^
+  -H "Content-Type: application/json" ^
+  -d "{\"device_id\":\"<device-id>\"}"
 ```
 
 **预期输出**：JSON 含 `summary`（含 `session_id` + `device_id`）+ `latestHardware`。
 
 ### 6.4 GetTerminalHistory
 
-```bash
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/GetTerminalHistory \
-  -H "Content-Type: application/json" \
-  -d '{"device_id":"<device-id>","limit":2}'
+```powershell
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/GetTerminalHistory ^
+  -H "Content-Type: application/json" ^
+  -d "{\"device_id\":\"<device-id>\",\"limit\":2}"
 ```
 
 **预期输出**：JSON 含 `snapshots` 数组。
 
 ### 6.5 DisconnectTerminal
 
-```bash
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/DisconnectTerminal \
-  -H "Content-Type: application/json" \
-  -d '{"session_id":"<session-id>"}'
+```powershell
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/DisconnectTerminal ^
+  -H "Content-Type: application/json" ^
+  -d "{\"session_id\":\"<session-id>\"}"
 ```
 
 **预期输出**：`{"ok":true,"message":"kicked"}` 或 `{"message":"session not found or offline"}`。
 
 ### 6.6 BlockTerminal / UnblockTerminal
 
-```bash
-# Block（按 device_id）
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/BlockTerminal \
-  -H "Content-Type: application/json" \
-  -d '{"device_id":"<device-id>"}'
-# → {"ok":true,"message":"blocked"}
+```powershell
+rem Block（按 device_id）：
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/BlockTerminal ^
+  -H "Content-Type: application/json" ^
+  -d "{\"device_id\":\"<device-id>\"}"
+rem → {"ok":true,"message":"blocked"}
 
-# Unblock（按 device_id）
-curl -s -X POST http://localhost:8080/teamx.proto.TeamX/UnblockTerminal \
-  -H "Content-Type: application/json" \
-  -d '{"device_id":"<device-id>"}'
-# → {"ok":true,"message":"unblocked"}
+rem Unblock（按 device_id）：
+curl -s -X POST http://localhost:8080/teamx.proto.TeamX/UnblockTerminal ^
+  -H "Content-Type: application/json" ^
+  -d "{\"device_id\":\"<device-id>\"}"
+rem → {"ok":true,"message":"unblocked"}
 ```
 
 ### 6.7 CORS 预检
 
-```bash
-curl -s -I -X OPTIONS http://localhost:8080/teamx.proto.TeamX/ListTerminals \
-  -H "Origin: http://localhost:5173" \
+```powershell
+curl -s -I -X OPTIONS http://localhost:8080/teamx.proto.TeamX/ListTerminals ^
+  -H "Origin: http://localhost:5173" ^
   -H "Access-Control-Request-Method: POST"
 ```
 

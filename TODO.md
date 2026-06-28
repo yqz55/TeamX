@@ -148,24 +148,24 @@
 > 同时提供 CLI 子命令方便日常调试。
 
 ### 4a.1 Admin CLI（优先）
-- [ ] `admin list` — 终端列表（调用 ListTerminals）
-- [ ] `admin show <id>` — 终端详情 + 最新硬件（调用 GetTerminal）
-- [ ] `admin history <id>` — 硬件历史（调用 GetTerminalHistory）
-- [ ] `admin kick <id>` — 踢断终端（调用 DisconnectTerminal）
-- [ ] `admin block <id>` — 封禁终端（调用 BlockTerminal）
-- [ ] `admin unblock <id>` — 解封终端（调用 UnblockTerminal）
+- [x] `admin list` — 终端列表（调用 ListTerminals）
+- [x] `admin show <id>` — 终端详情 + 最新硬件（调用 GetTerminal）
+- [x] `admin history <id>` — 硬件历史（调用 GetTerminalHistory）
+- [x] `admin kick <id>` — 踢断终端（调用 DisconnectTerminal）
+- [x] `admin block <id>` — 封禁终端（调用 BlockTerminal）
+- [x] `admin unblock <id>` — 解封终端（调用 UnblockTerminal）
 
 ### 4a.2 HTTP 网关
-- [ ] admin.exe 启动 HTTP Server，使用 ConnectRPC（`bufbuild/connect-go`）暴露现有 gRPC RPC：
+- [x] admin.exe 启动 HTTP Server，使用 ConnectRPC 暴露现有 gRPC RPC：
   - 复用 `teamx.proto` 定义，不需要手写 REST 路由
   - 浏览器通过 Connect 协议直接调 `ListTerminals` / `GetTerminal` / `DisconnectTerminal` 等
-- [ ] CORS 配置（前端开发时 localhost:5173 → localhost:8080）
-- [ ] WebSocket 端点 `/ws` — 广播终端在线/离线变化
+- [x] CORS 配置（前端开发时 localhost:5173 → localhost:8080）
+- [x] WebSocket 端点 `/ws` — 广播终端在线/离线变化
 
 ### 4a.3 验证
-- [ ] `admin list` / `admin show` / `admin kick` CLI 命令正常
-- [ ] 浏览器 `fetch("http://localhost:8080/teamx.proto.TeamX/ListTerminals")` 返回 JSON
-- [ ] WebSocket 连接成功，终端上下线时收到推送
+- [x] `admin list` / `admin show` / `admin kick` CLI 命令正常
+- [x] 浏览器 `fetch("http://localhost:8080/teamx.proto.TeamX/ListTerminals")` 返回 JSON
+- [x] WebSocket 连接成功，终端上下线时收到推送
 
 > 设计决策：不设 REST API 翻译层。gRPC 已有 9 个现成 RPC，ConnectRPC 让浏览器直接消费
 > 这些 RPC（JSON over HTTP），省去手写路由 + 请求转换的重复劳动。

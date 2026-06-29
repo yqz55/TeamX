@@ -235,6 +235,8 @@ func (s *TeamXServer) ListTerminals(ctx context.Context, req *proto.ListTerminal
 			OsVersion:     t.OSVersion,
 			ClientVersion: t.ClientVersion,
 			Online:        t.Online,
+			Blocked:       t.Blocked,
+
 			LastHeartbeat: t.LastHeartbeat,
 			LastSeenAt:    t.LastSeenAt,
 		}
@@ -269,6 +271,7 @@ func (s *TeamXServer) GetTerminal(ctx context.Context, req *proto.GetTerminalReq
 			OsVersion:     t.OSVersion,
 			ClientVersion: t.ClientVersion,
 			Online:        t.Online,
+			Blocked:       t.Blocked,
 			LastHeartbeat: t.LastHeartbeat,
 			LastSeenAt:    t.LastSeenAt,
 		},

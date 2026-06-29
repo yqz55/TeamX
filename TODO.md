@@ -183,22 +183,25 @@
 - [x] 路由配置（列表页 `/` / 详情页 `/terminal/:id`）
 
 ### 4b.2 终端列表页
-- [x] 表格展示：主机名、OS、版本、在线状态标签、最后心跳时间
-- [x] 在线/离线过滤器
-- [x] 分页控件
-- [x] 行操作：查看详情、踢断、封禁/解封
+- [x] 表格展示：Device ID、Hostname、OS、版本、Status（三态: Online/Offline/Disabled）、Session ID（仅在线显示）、心跳时间
+- [x] 过滤器：All / Online / Offline / Disabled（服务端 + 客户端混合过滤）
+- [x] 分页控件 + 排序
+- [x] 行操作：Detail / Kick / Block / Unblock（按 blocked 状态条件显示）
 - [x] WebSocket 实时更新在线状态
 
 ### 4b.3 终端详情页
-- [x] 概览 Tab：基本信息 + 连接状态
+- [x] 概览 Tab：基本信息 + 连接状态（含 Device ID + blocked 状态）
 - [x] 硬件 Tab：CPU/内存/磁盘/网卡/BIOS/主板
 - [x] 插件化 Tab 架构（PluginTab 接口 + pluginTabs 注册表）
 - [x] 占位 Tab：Software、Users、Processes、Peripherals
 
 ### 4b.4 验证
-- [ ] 浏览器访问 → 终端列表展示
-- [ ] 点击终端 → 详情页展示硬件信息
-- [ ] Kick 按钮 → 终端下线，列表状态自动更新
+- [x] 浏览器访问 → 终端列表展示
+- [x] 过滤器切换（All/Online/Offline/Disabled）正常
+- [x] 点击终端 → 详情页展示硬件信息
+- [x] Kick 按钮 → 终端下线，列表状态自动更新
+- [x] Block 按钮 → Status 变为 Disabled，Actions 切换为 Unblock
+- [x] Unblock 按钮 → Status 恢复，Actions 切换为 Block
 
 ---
 

@@ -112,7 +112,7 @@ FROM terminals`
 	var args []interface{}
 
 	if online != nil {
-		where = "WHERE online = ?"
+		where = "AND online = ?"
 		if *online {
 			args = append(args, 1)
 		} else {

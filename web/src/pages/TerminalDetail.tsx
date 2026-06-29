@@ -14,7 +14,7 @@ import {
   Progress,
   Empty,
   Tooltip,
-  message,
+  App,
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -360,6 +360,7 @@ function HardwareTab({ hw }: { hw: HardwareInfo }) {
 export default function TerminalDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { message } = App.useApp()
 
   const [summary, setSummary] = useState<TerminalSummary | null>(null)
   const [hardware, setHardware] = useState<HardwareInfo | null>(null)

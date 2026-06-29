@@ -2022,6 +2022,7 @@ type TerminalSummary struct {
 	LastHeartbeat string                 `protobuf:"bytes,7,opt,name=last_heartbeat,json=lastHeartbeat,proto3" json:"last_heartbeat,omitempty"` // RFC3339, empty if never
 	LastSeenAt    string                 `protobuf:"bytes,8,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
 	DeviceId      string                 `protobuf:"bytes,9,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"` // 设备指纹
+	Blocked       bool                   `protobuf:"varint,10,opt,name=blocked,proto3" json:"blocked,omitempty"`                 // 是否已禁用的设备
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2117,6 +2118,13 @@ func (x *TerminalSummary) GetDeviceId() string {
 		return x.DeviceId
 	}
 	return ""
+}
+
+func (x *TerminalSummary) GetBlocked() bool {
+	if x != nil {
+		return x.Blocked
+	}
+	return false
 }
 
 type GetTerminalRequest struct {
@@ -3208,7 +3216,7 @@ const file_teamx_proto_rawDesc = "" +
 	"\x15ListTerminalsResponse\x12:\n" +
 	"\tterminals\x18\x01 \x03(\v2\x1c.teamx.proto.TerminalSummaryR\tterminals\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"\xa0\x02\n" +
+	"totalCount\"\xba\x02\n" +
 	"\x0fTerminalSummary\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1a\n" +
@@ -3221,7 +3229,9 @@ const file_teamx_proto_rawDesc = "" +
 	"\x0elast_heartbeat\x18\a \x01(\tR\rlastHeartbeat\x12 \n" +
 	"\flast_seen_at\x18\b \x01(\tR\n" +
 	"lastSeenAt\x12\x1b\n" +
-	"\tdevice_id\x18\t \x01(\tR\bdeviceId\"P\n" +
+	"\tdevice_id\x18\t \x01(\tR\bdeviceId\x12\x18\n" +
+	"\ablocked\x18\n" +
+	" \x01(\bR\ablocked\"P\n" +
 	"\x12GetTerminalRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +

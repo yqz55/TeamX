@@ -8,9 +8,8 @@ import {
   Tag,
   Radio,
   Button,
-  Modal,
+  App,
   Tooltip,
-  message,
   Badge,
 } from 'antd'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
@@ -52,12 +51,13 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 export default function TerminalList() {
   const navigate = useNavigate()
+  const { modal, message } = App.useApp()
 
   // ---- state ---------------------------------------------------------------
   const [data, setData] = useState<TerminalSummary[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [filter, setFilter] = useState<'all' | 'online' | 'offline'>('all')
+  const [filter, setFilter] = useState<'all' | 'online' | 'offline' | 'disabled'>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
@@ -71,13 +71,22 @@ export default function TerminalList() {
 
   // ---- data fetching -------------------------------------------------------
   const fetchData = useCallback(
-    async (f: 'all' | 'online' | 'offline', p: number, ps: number) => {
+    async (f: 'all' | 'online' | 'offline' | 'disabled', p: number, ps: number) => {
       setLoading(true)
       try {
         const req: { pageSize: number; page: number; onlineFilter?: boolean } =
           { pageSize: ps, page: p }
         if (f === 'online') req.onlineFilter = true
         else if (f === 'offline') req.onlineFilter = false
+        else if (f === 'disabled') {
+          // No server-side blocked filter — fetch all, filter client-side.
+          const resp = await teamxClient.listTerminals({ pageSize: 500, page: 1 })
+          const blocked = resp.terminals.filter((t) => t.blocked)
+          setTotal(blocked.length)
+          setData(blocked.slice((p - 1) * ps, p * ps))
+          setLoading(false)
+          return
+        }
 
         const resp = await teamxClient.listTerminals(req)
         setData(resp.terminals)
@@ -126,7 +135,7 @@ export default function TerminalList() {
   )
 
   const handleKick = useCallback((sessionId: string, hostname: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: `Kick ${hostname}?`,
       content: `Disconnect session ${shortId(sessionId)}. The client will exit permanently.`,
       okText: 'Kick',
@@ -150,7 +159,7 @@ export default function TerminalList() {
   }, [])
 
   const handleBlock = useCallback((deviceId: string, hostname: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: `Block ${hostname}?`,
       content: `Device ${shortId(deviceId, 16)} will be blocked from re-registering. All active sessions will be kicked.`,
       okText: 'Block',
@@ -173,7 +182,7 @@ export default function TerminalList() {
   }, [])
 
   const handleUnblock = useCallback((deviceId: string, hostname: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: `Unblock ${hostname}?`,
       content: `Device ${shortId(deviceId, 16)} will be allowed to register again.`,
       okText: 'Unblock',
@@ -197,9 +206,9 @@ export default function TerminalList() {
   // ---- columns -------------------------------------------------------------
   const columns: ColumnsType<TerminalSummary> = [
     {
-      title: 'Session ID',
-      dataIndex: 'sessionId',
-      key: 'sessionId',
+      title: 'Device ID',
+      dataIndex: 'deviceId',
+      key: 'deviceId',
       width: 160,
       render: (v: string) => (
         <Tooltip title={v}>
@@ -230,19 +239,30 @@ export default function TerminalList() {
     },
     {
       title: 'Status',
-      dataIndex: 'online',
-      key: 'online',
+      key: 'status',
       width: 100,
-      filters: [
-        { text: 'Online', value: true },
-        { text: 'Offline', value: false },
-      ],
-      onFilter: (value, record) => record.online === value,
-      render: (online: boolean) => (
-        <Tag color={online ? 'green' : 'red'}>
-          {online ? 'Online' : 'Offline'}
-        </Tag>
-      ),
+      render: (_: unknown, r: TerminalSummary) => {
+        if (r.blocked) return <Tag color="default">Disabled</Tag>
+        return (
+          <Tag color={r.online ? 'green' : 'red'}>
+            {r.online ? 'Online' : 'Offline'}
+          </Tag>
+        )
+      },
+    },
+    {
+      title: 'Session ID',
+      dataIndex: 'sessionId',
+      key: 'sessionId',
+      width: 160,
+      render: (v: string, r: TerminalSummary) => {
+        if (!r.online || r.blocked) return ''
+        return (
+          <Tooltip title={v}>
+            <code style={{ fontSize: 12 }}>{shortId(v)}</code>
+          </Tooltip>
+        )
+      },
     },
     {
       title: 'Last Heartbeat',
@@ -273,7 +293,7 @@ export default function TerminalList() {
           >
             Detail
           </Button>
-          {record.online && (
+          {record.online && !record.blocked && (
             <Button
               type="link"
               icon={<StopOutlined />}
@@ -284,22 +304,26 @@ export default function TerminalList() {
               Kick
             </Button>
           )}
-          <Button
-            type="link"
-            icon={<LockOutlined />}
-            size="small"
-            onClick={() => handleBlock(record.deviceId, record.hostname)}
-          >
-            Block
-          </Button>
-          <Button
-            type="link"
-            icon={<UnlockOutlined />}
-            size="small"
-            onClick={() => handleUnblock(record.deviceId, record.hostname)}
-          >
-            Unblock
-          </Button>
+          {!record.blocked && (
+            <Button
+              type="link"
+              icon={<LockOutlined />}
+              size="small"
+              onClick={() => handleBlock(record.deviceId, record.hostname)}
+            >
+              Block
+            </Button>
+          )}
+          {record.blocked && (
+            <Button
+              type="link"
+              icon={<UnlockOutlined />}
+              size="small"
+              onClick={() => handleUnblock(record.deviceId, record.hostname)}
+            >
+              Unblock
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -336,6 +360,7 @@ export default function TerminalList() {
             <Radio.Button value="all">All</Radio.Button>
             <Radio.Button value="online">Online</Radio.Button>
             <Radio.Button value="offline">Offline</Radio.Button>
+            <Radio.Button value="disabled">Disabled</Radio.Button>
           </Radio.Group>
 
           <Space>

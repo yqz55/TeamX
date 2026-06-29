@@ -190,10 +190,10 @@
 - [x] WebSocket 实时更新在线状态
 
 ### 4b.3 终端详情页
-- [ ] 概览 Tab：基本信息 + 连接状态
-- [ ] 硬件 Tab：CPU/内存/磁盘/网卡/BIOS/主板
-- [ ] 软件 Tab（Phase 6 填充数据）
-- [ ] 进程 Tab（Phase 6 填充数据）
+- [x] 概览 Tab：基本信息 + 连接状态
+- [x] 硬件 Tab：CPU/内存/磁盘/网卡/BIOS/主板
+- [x] 插件化 Tab 架构（PluginTab 接口 + pluginTabs 注册表）
+- [x] 占位 Tab：Software、Users、Processes、Peripherals
 
 ### 4b.4 验证
 - [ ] 浏览器访问 → 终端列表展示

@@ -28,6 +28,8 @@ const (
 	TeamX_DisconnectTerminal_FullMethodName = "/teamx.proto.TeamX/DisconnectTerminal"
 	TeamX_BlockTerminal_FullMethodName      = "/teamx.proto.TeamX/BlockTerminal"
 	TeamX_UnblockTerminal_FullMethodName    = "/teamx.proto.TeamX/UnblockTerminal"
+	TeamX_SendCommand_FullMethodName        = "/teamx.proto.TeamX/SendCommand"
+	TeamX_GetCommandLog_FullMethodName      = "/teamx.proto.TeamX/GetCommandLog"
 )
 
 // TeamXClient is the client API for TeamX service.
@@ -52,6 +54,8 @@ type TeamXClient interface {
 	DisconnectTerminal(ctx context.Context, in *DisconnectTerminalRequest, opts ...grpc.CallOption) (*DisconnectTerminalResponse, error)
 	BlockTerminal(ctx context.Context, in *BlockTerminalRequest, opts ...grpc.CallOption) (*BlockTerminalResponse, error)
 	UnblockTerminal(ctx context.Context, in *UnblockTerminalRequest, opts ...grpc.CallOption) (*UnblockTerminalResponse, error)
+	SendCommand(ctx context.Context, in *SendCommandRequest, opts ...grpc.CallOption) (*SendCommandResponse, error)
+	GetCommandLog(ctx context.Context, in *GetCommandLogRequest, opts ...grpc.CallOption) (*GetCommandLogResponse, error)
 }
 
 type teamXClient struct {
@@ -158,6 +162,26 @@ func (c *teamXClient) UnblockTerminal(ctx context.Context, in *UnblockTerminalRe
 	return out, nil
 }
 
+func (c *teamXClient) SendCommand(ctx context.Context, in *SendCommandRequest, opts ...grpc.CallOption) (*SendCommandResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendCommandResponse)
+	err := c.cc.Invoke(ctx, TeamX_SendCommand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *teamXClient) GetCommandLog(ctx context.Context, in *GetCommandLogRequest, opts ...grpc.CallOption) (*GetCommandLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCommandLogResponse)
+	err := c.cc.Invoke(ctx, TeamX_GetCommandLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TeamXServer is the server API for TeamX service.
 // All implementations must embed UnimplementedTeamXServer
 // for forward compatibility.
@@ -180,6 +204,8 @@ type TeamXServer interface {
 	DisconnectTerminal(context.Context, *DisconnectTerminalRequest) (*DisconnectTerminalResponse, error)
 	BlockTerminal(context.Context, *BlockTerminalRequest) (*BlockTerminalResponse, error)
 	UnblockTerminal(context.Context, *UnblockTerminalRequest) (*UnblockTerminalResponse, error)
+	SendCommand(context.Context, *SendCommandRequest) (*SendCommandResponse, error)
+	GetCommandLog(context.Context, *GetCommandLogRequest) (*GetCommandLogResponse, error)
 	mustEmbedUnimplementedTeamXServer()
 }
 
@@ -216,6 +242,12 @@ func (UnimplementedTeamXServer) BlockTerminal(context.Context, *BlockTerminalReq
 }
 func (UnimplementedTeamXServer) UnblockTerminal(context.Context, *UnblockTerminalRequest) (*UnblockTerminalResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UnblockTerminal not implemented")
+}
+func (UnimplementedTeamXServer) SendCommand(context.Context, *SendCommandRequest) (*SendCommandResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendCommand not implemented")
+}
+func (UnimplementedTeamXServer) GetCommandLog(context.Context, *GetCommandLogRequest) (*GetCommandLogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCommandLog not implemented")
 }
 func (UnimplementedTeamXServer) mustEmbedUnimplementedTeamXServer() {}
 func (UnimplementedTeamXServer) testEmbeddedByValue()               {}
@@ -378,6 +410,42 @@ func _TeamX_UnblockTerminal_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TeamX_SendCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TeamXServer).SendCommand(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TeamX_SendCommand_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TeamXServer).SendCommand(ctx, req.(*SendCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TeamX_GetCommandLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCommandLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TeamXServer).GetCommandLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TeamX_GetCommandLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TeamXServer).GetCommandLog(ctx, req.(*GetCommandLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TeamX_ServiceDesc is the grpc.ServiceDesc for TeamX service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -412,6 +480,14 @@ var TeamX_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UnblockTerminal",
 			Handler:    _TeamX_UnblockTerminal_Handler,
+		},
+		{
+			MethodName: "SendCommand",
+			Handler:    _TeamX_SendCommand_Handler,
+		},
+		{
+			MethodName: "GetCommandLog",
+			Handler:    _TeamX_GetCommandLog_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

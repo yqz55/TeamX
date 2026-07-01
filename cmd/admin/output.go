@@ -207,6 +207,58 @@ func printResult(ok bool, message string, jsonMode bool) {
 	}
 }
 
+// ---- Command log -----------------------------------------------------------
+
+func printCommandLog(entries []*proto.CommandLogEntry, jsonMode bool) {
+	if jsonMode {
+		printJSON(map[string]any{
+			"entries": entries,
+			"count":   len(entries),
+		})
+		return
+	}
+
+	if len(entries) == 0 {
+		fmt.Println("No command logs found.")
+		return
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+	fmt.Fprintln(w, "COMMAND ID\tTYPE\tSTATUS\tEXIT\tCREATED\tSTDOUT")
+	for _, e := range entries {
+		typeName := strings.TrimPrefix(e.Type.String(), "COMMAND_TYPE_")
+		stdout := e.Stdout
+		if len(stdout) > 60 {
+			stdout = stdout[:60] + "..."
+		}
+		stdout = strings.ReplaceAll(stdout, "\n", "\\n")
+		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
+			truncate(e.CommandId, 36),
+			typeName,
+			e.Status,
+			e.ExitCode,
+			na(e.CreatedAt),
+			stdout,
+		)
+	}
+	w.Flush()
+	fmt.Printf("---\n%d entries\n", len(entries))
+}
+
+// ---- SendCommand result ----------------------------------------------------
+
+func printCommandResult(resp *proto.SendCommandResponse, jsonMode bool) {
+	if jsonMode {
+		printJSON(resp)
+		return
+	}
+	if resp.Ok {
+		fmt.Printf("✓ %s\n  command_id: %s\n", resp.Message, resp.CommandId)
+	} else {
+		fmt.Printf("✗ %s\n", resp.Message)
+	}
+}
+
 func printError(err error, jsonMode bool) {
 	if jsonMode {
 		printJSONError(err)

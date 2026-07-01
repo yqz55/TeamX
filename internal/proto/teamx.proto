@@ -43,6 +43,11 @@ service TeamX {
     rpc DisconnectTerminal(DisconnectTerminalRequest) returns (DisconnectTerminalResponse);
     rpc BlockTerminal(BlockTerminalRequest) returns (BlockTerminalResponse);
     rpc UnblockTerminal(UnblockTerminalRequest) returns (UnblockTerminalResponse);
+
+    // ---- Admin / Command RPCs (Phase 5) ---------------------------------------
+
+    rpc SendCommand(SendCommandRequest) returns (SendCommandResponse);
+    rpc GetCommandLog(GetCommandLogRequest) returns (GetCommandLogResponse);
 }
 
 // =============================================================================
@@ -241,13 +246,26 @@ message Printer {
     bool   is_default = 4;
 }
 
+// ---- Command Type Enum -----------------------------------------------------
+
+enum CommandType {
+    COMMAND_TYPE_UNSPECIFIED  = 0;
+    COMMAND_TYPE_COLLECT_NOW  = 1;  // 立即触发一次硬件上报
+    COMMAND_TYPE_RUN_SCRIPT   = 2;  // 执行脚本/命令
+    COMMAND_TYPE_KILL_PROCESS = 3;  // 终止进程（Phase 6 插件化）
+    COMMAND_TYPE_UPDATE_CONFIG = 4; // 更新客户端配置（Phase 6 插件化）
+    COMMAND_TYPE_UPGRADE      = 5;  // 在线升级（Phase 9）
+    COMMAND_TYPE_RESTART      = 6;  // 重启客户端
+    COMMAND_TYPE_SHUTDOWN     = 7;  // 关闭客户端
+}
+
 // ---- Command ---------------------------------------------------------------
 
 message Command {
     string command_id  = 1;  // 唯一命令 ID (UUID v4)
-    string type        = 2;  // 命令类型枚举: CollectNow | RunScript | KillProcess | UpdateConfig | Upgrade | Restart | Shutdown
+    CommandType type   = 2;  // 命令类型
     map<string, string> params = 3;  // 灵活参数，不同命令类型自由组合
-    int64 timeout_sec  = 4;  // 超时时间 (秒), 0 = 无超时
+    int64 timeout_sec  = 4;  // 超时时间 (秒), 0 = 使用默认值 (30s)
     int64 created_at_unix = 5;  // 命令创建时间
 }
 
@@ -260,6 +278,49 @@ message CommandResult {
     int64  started_at_unix  = 6;
     int64  finished_at_unix = 7;
     string error_message = 8;  // 失败原因（如有）
+}
+
+// ---- SendCommand (Admin RPC) -----------------------------------------------
+
+message SendCommandRequest {
+    string device_id    = 1;  // 目标设备（稳定标识，必填）
+    CommandType type    = 2;  // 命令类型
+    map<string, string> params = 3;  // 命令参数
+    int64 timeout_sec   = 4;  // 超时时间 (秒), 0 = 使用默认值 (30s)
+}
+
+message SendCommandResponse {
+    bool   ok          = 1;
+    string command_id  = 2;  // 分配的命令 ID，用于后续查询
+    string message     = 3;  // 错误描述（ok=false 时）
+}
+
+// ---- GetCommandLog (Admin RPC) ---------------------------------------------
+
+message GetCommandLogRequest {
+    string device_id  = 1;  // 按设备查询
+    string session_id = 2;  // 按会话查询（与 device_id 二选一，device_id 优先）
+    int32  limit      = 3;  // 返回条数，默认 50，最大 200
+}
+
+message GetCommandLogResponse {
+    repeated CommandLogEntry entries = 1;
+}
+
+message CommandLogEntry {
+    string command_id     = 1;
+    string session_id     = 2;
+    string device_id      = 3;
+    CommandType type      = 4;
+    map<string, string> params = 5;
+    string status         = 6;   // Pending | Sent | Executing | Completed | Failed | Timeout
+    int32  exit_code      = 7;
+    string stdout         = 8;
+    string stderr         = 9;
+    string error_message  = 10;
+    string created_at     = 11;  // RFC 3339
+    string started_at     = 12;  // RFC 3339
+    string finished_at    = 13;  // RFC 3339
 }
 
 // =============================================================================

@@ -7,6 +7,11 @@ import (
 	"teamx/internal/proto"
 )
 
+// cmdQueueCapacity is the maximum number of pending commands per terminal.
+// When the queue is full, SendCommand returns an error so the admin can retry
+// rather than silently dropping commands.
+const cmdQueueCapacity = 32
+
 // ClientConn holds the state of a single connected session.
 type ClientConn struct {
 	SessionID  string
@@ -25,6 +30,12 @@ type ClientConn struct {
 	// DisconnectCh is closed when an admin forces a kick. The Channel handler
 	// selects on this channel; closing it signals the stream to exit cleanly.
 	DisconnectCh chan struct{}
+
+	// CmdQueue buffers commands before they are pushed to the Channel stream.
+	// The command consumer goroutine drains this queue serially, guaranteeing
+	// ordered delivery. Capacity is cmdQueueCapacity; when full, SendCommand
+	// rejects with an error rather than blocking.
+	CmdQueue chan *proto.Command
 
 	LastHeartbeat time.Time
 	Online        bool
@@ -55,6 +66,7 @@ func (cm *ConnectionManager) SetMaxConns(n int) {
 // Add inserts a newly registered session.
 func (cm *ConnectionManager) Add(conn *ClientConn) {
 	conn.DisconnectCh = make(chan struct{})
+	conn.CmdQueue = make(chan *proto.Command, cmdQueueCapacity)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	cm.sessions[conn.SessionID] = conn
@@ -140,6 +152,18 @@ func (cm *ConnectionManager) SetStream(sessionID string, stream proto.TeamX_Chan
 	conn.Stream = stream
 	conn.Online = true
 	conn.LastHeartbeat = time.Now()
+}
+
+// GetStream returns the stream for the given session, or nil if the session
+// doesn't exist or is offline. Thread-safe.
+func (cm *ConnectionManager) GetStream(sessionID string) proto.TeamX_ChannelServer {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	conn, ok := cm.sessions[sessionID]
+	if !ok || !conn.Online {
+		return nil
+	}
+	return conn.Stream
 }
 
 // ClearStream removes the stream reference when the Channel closes.

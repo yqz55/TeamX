@@ -210,6 +210,115 @@ func newBlockCmd(ctx *cmdCtx) *cobra.Command {
 	return cmd
 }
 
+// ---- cmd (SendCommand) -------------------------------------------------------
+
+func newCmdCmd(ctx *cmdCtx) *cobra.Command {
+	var timeout int64
+
+	cmd := &cobra.Command{
+		Use:   "cmd <device-id> <type> [key=value ...]",
+		Short: "Send a command to a terminal",
+		Long: `Send a command to a remote terminal by device_id.
+
+Available command types:
+  COLLECT_NOW   - Trigger immediate hardware report
+  RUN_SCRIPT    - Execute a shell command (requires cmd=<script> param)
+  RESTART       - Restart the client agent
+  SHUTDOWN      - Shut down the client agent
+
+Parameters are specified as key=value pairs, e.g.:
+  admin cmd <device-id> RUN_SCRIPT cmd=uptime
+  admin cmd <device-id> COLLECT_NOW
+  admin cmd <device-id> RUN_SCRIPT cmd="ls -la /tmp"`,
+		Args: cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, conn, err := ctx.dial()
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+
+			deviceID := args[0]
+			typeName := args[1]
+
+			// Parse command type.
+			cmdTypeVal, ok := proto.CommandType_value["COMMAND_TYPE_"+typeName]
+			if !ok {
+				return fmt.Errorf("unknown command type: %s (valid: COLLECT_NOW, RUN_SCRIPT, RESTART, SHUTDOWN)", typeName)
+			}
+			cmdType := proto.CommandType(cmdTypeVal)
+
+			// Parse key=value params.
+			params := make(map[string]string)
+			for _, arg := range args[2:] {
+				parts := splitKeyValue(arg)
+				if len(parts) == 2 {
+					params[parts[0]] = parts[1]
+				}
+			}
+
+			resp, err := client.SendCommand(cmd.Context(), &proto.SendCommandRequest{
+				DeviceId:   deviceID,
+				Type:       cmdType,
+				Params:     params,
+				TimeoutSec: timeout,
+			})
+			if err != nil {
+				return err
+			}
+
+			printCommandResult(resp, ctx.jsonMode)
+			return nil
+		},
+	}
+
+	cmd.Flags().Int64Var(&timeout, "timeout", 0, "Command timeout in seconds (0 = default 30s)")
+	return cmd
+}
+
+// ---- cmdlog (GetCommandLog) ---------------------------------------------------
+
+func newCmdLogCmd(ctx *cmdCtx) *cobra.Command {
+	var limit int32
+
+	cmd := &cobra.Command{
+		Use:   "cmdlog <device-id|session-id>",
+		Short: "Show command execution history",
+		Long: `Show command execution history for a device or session.
+
+Accepts either a device_id (64-char hex) or session_id (UUID).`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, conn, err := ctx.dial()
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+
+			req := &proto.GetCommandLogRequest{
+				Limit: limit,
+			}
+			// Auto-detect: 64-char hex = device_id, otherwise session_id.
+			if len(args[0]) == 64 {
+				req.DeviceId = args[0]
+			} else {
+				req.SessionId = args[0]
+			}
+
+			resp, err := client.GetCommandLog(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
+
+			printCommandLog(resp.Entries, ctx.jsonMode)
+			return nil
+		},
+	}
+
+	cmd.Flags().Int32Var(&limit, "limit", 50, "Max entries (max 200)")
+	return cmd
+}
+
 // ---- unblock -----------------------------------------------------------------
 
 func newUnblockCmd(ctx *cmdCtx) *cobra.Command {
@@ -237,4 +346,15 @@ func newUnblockCmd(ctx *cmdCtx) *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+// splitKeyValue splits "key=value" into ["key", "value"]. Returns the original
+// string as a single element if there is no "=".
+func splitKeyValue(s string) []string {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '=' {
+			return []string{s[:i], s[i+1:]}
+		}
+	}
+	return []string{s}
 }

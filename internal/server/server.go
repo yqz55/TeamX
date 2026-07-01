@@ -131,34 +131,49 @@ func (s *TeamXServer) Channel(stream proto.TeamX_ChannelServer) error {
 		}
 	}()
 
-	for {
-		select {
-		case <-conn.DisconnectCh:
-			log.Printf("[channel] admin kick: session=%s", sessionID)
-			return status.Error(codes.PermissionDenied, "kicked by admin")
+	// ---- Command consumer goroutine (Phase 5.2) ------------------------------
+	// Drains the per-terminal command queue serially, guaranteeing ordered
+	// delivery even when multiple admins send commands concurrently.
+	cmdConsumerDone := make(chan struct{})
+	go s.commandConsumer(streamCtx, stream, sessionID, conn.CmdQueue, cmdConsumerDone)
 
-		case r := <-msgCh:
-			if r.err == io.EOF {
-				log.Printf("[channel] stream closed (EOF): session=%s", sessionID)
-				return nil
-			}
-			if r.err != nil {
-				log.Printf("[channel] stream error: session=%s err=%v", sessionID, r.err)
-				return r.err
-			}
+	// Run the recv loop. Structured as a closure so we can wait for the command
+	// consumer to exit before returning from this function.
+	recvErr := func() error {
+		for {
+			select {
+			case <-conn.DisconnectCh:
+				log.Printf("[channel] admin kick: session=%s", sessionID)
+				return status.Error(codes.PermissionDenied, "kicked by admin")
 
-			switch payload := r.msg.Payload.(type) {
-			case *proto.ClientMessage_Heartbeat:
-				s.handleHeartbeat(stream, sessionID, payload.Heartbeat)
-			case *proto.ClientMessage_ReportRequest:
-				s.handleReport(sessionID, conn.DeviceID, payload.ReportRequest)
-			case *proto.ClientMessage_CommandResult:
-				s.handleCommandResult(sessionID, payload.CommandResult)
-			default:
-				log.Printf("[channel] unknown message type from session=%s seq=%d", sessionID, r.msg.Seq)
+			case r := <-msgCh:
+				if r.err == io.EOF {
+					log.Printf("[channel] stream closed (EOF): session=%s", sessionID)
+					return nil
+				}
+				if r.err != nil {
+					log.Printf("[channel] stream error: session=%s err=%v", sessionID, r.err)
+					return r.err
+				}
+
+				switch payload := r.msg.Payload.(type) {
+				case *proto.ClientMessage_Heartbeat:
+					s.handleHeartbeat(stream, sessionID, payload.Heartbeat)
+				case *proto.ClientMessage_ReportRequest:
+					s.handleReport(sessionID, conn.DeviceID, payload.ReportRequest)
+				case *proto.ClientMessage_CommandResult:
+					s.handleCommandResult(sessionID, payload.CommandResult)
+				default:
+					log.Printf("[channel] unknown message type from session=%s seq=%d", sessionID, r.msg.Seq)
+				}
 			}
 		}
-	}
+	}()
+
+	// Cancel streamCtx so the consumer goroutine exits, then wait for it.
+	cancel()
+	<-cmdConsumerDone
+	return recvErr
 }
 
 func (s *TeamXServer) handleHeartbeat(stream proto.TeamX_ChannelServer, sessionID string, hb *proto.Heartbeat) {
@@ -201,10 +216,6 @@ func (s *TeamXServer) handleReport(sessionID, deviceID string, report *proto.Rep
 	default:
 		log.Printf("[report] session=%s report_id=%s type=<unknown>", sessionID, report.GetReportId())
 	}
-}
-
-func (s *TeamXServer) handleCommandResult(sessionID string, result *proto.CommandResult) {
-	log.Printf("[command] result: session=%s command_id=%s status=%s", sessionID, result.GetCommandId(), result.GetStatus())
 }
 
 func (s *TeamXServer) ListTerminals(ctx context.Context, req *proto.ListTerminalsRequest) (*proto.ListTerminalsResponse, error) {

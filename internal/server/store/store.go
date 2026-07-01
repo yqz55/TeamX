@@ -64,6 +64,23 @@ type Store interface {
 	// range (inclusive). since/until are RFC3339 strings. Pass empty string
 	// for unbounded. limit caps the row count; 0 means default (100).
 	ListHardwareReports(deviceID string, since, until string, limit int) ([]*HardwareSnapshot, error)
+
+	// ---- Command Logs (Phase 5) ------------------------------------------------
+
+	// SaveCommandLog inserts a new command log row with status=Pending.
+	SaveCommandLog(commandID, sessionID, deviceID string, cmdType proto.CommandType,
+		params map[string]string) error
+
+	// UpdateCommandResult updates the command result fields after execution.
+	UpdateCommandResult(commandID string, status string, exitCode int32,
+		stdout, stderr, errorMsg, startedAt, finishedAt string) error
+
+	// UpdateCommandStatus updates only the status field (for Sent, Executing transitions).
+	UpdateCommandStatus(commandID, status string) error
+
+	// GetCommandLog returns command log entries for a device or session.
+	// deviceID takes precedence over sessionID. limit caps results; 0 means default (50).
+	GetCommandLog(deviceID, sessionID string, limit int) ([]*CommandLogEntry, error)
 }
 
 // Terminal is the query result for a single terminal row.
@@ -87,6 +104,23 @@ type HardwareSnapshot struct {
 	ReportID  string
 	CreatedAt string
 	Info      *proto.HardwareInfo
+}
+
+// CommandLogEntry is the query result for a single command log row.
+type CommandLogEntry struct {
+	CommandID    string
+	SessionID    string
+	DeviceID     string
+	Type         proto.CommandType
+	Params       map[string]string
+	Status       string
+	ExitCode     int32
+	Stdout       string
+	Stderr       string
+	ErrorMessage string
+	CreatedAt    string
+	StartedAt    string
+	FinishedAt   string
 }
 
 // ---- SQLite implementation ------------------------------------------------

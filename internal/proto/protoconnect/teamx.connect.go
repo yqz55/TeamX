@@ -53,6 +53,10 @@ const (
 	TeamXBlockTerminalProcedure = "/teamx.proto.TeamX/BlockTerminal"
 	// TeamXUnblockTerminalProcedure is the fully-qualified name of the TeamX's UnblockTerminal RPC.
 	TeamXUnblockTerminalProcedure = "/teamx.proto.TeamX/UnblockTerminal"
+	// TeamXSendCommandProcedure is the fully-qualified name of the TeamX's SendCommand RPC.
+	TeamXSendCommandProcedure = "/teamx.proto.TeamX/SendCommand"
+	// TeamXGetCommandLogProcedure is the fully-qualified name of the TeamX's GetCommandLog RPC.
+	TeamXGetCommandLogProcedure = "/teamx.proto.TeamX/GetCommandLog"
 )
 
 // TeamXClient is a client for the teamx.proto.TeamX service.
@@ -75,6 +79,8 @@ type TeamXClient interface {
 	DisconnectTerminal(context.Context, *connect.Request[proto.DisconnectTerminalRequest]) (*connect.Response[proto.DisconnectTerminalResponse], error)
 	BlockTerminal(context.Context, *connect.Request[proto.BlockTerminalRequest]) (*connect.Response[proto.BlockTerminalResponse], error)
 	UnblockTerminal(context.Context, *connect.Request[proto.UnblockTerminalRequest]) (*connect.Response[proto.UnblockTerminalResponse], error)
+	SendCommand(context.Context, *connect.Request[proto.SendCommandRequest]) (*connect.Response[proto.SendCommandResponse], error)
+	GetCommandLog(context.Context, *connect.Request[proto.GetCommandLogRequest]) (*connect.Response[proto.GetCommandLogResponse], error)
 }
 
 // NewTeamXClient constructs a client for the teamx.proto.TeamX service. By default, it uses the
@@ -142,6 +148,18 @@ func NewTeamXClient(httpClient connect.HTTPClient, baseURL string, opts ...conne
 			connect.WithSchema(teamXMethods.ByName("UnblockTerminal")),
 			connect.WithClientOptions(opts...),
 		),
+		sendCommand: connect.NewClient[proto.SendCommandRequest, proto.SendCommandResponse](
+			httpClient,
+			baseURL+TeamXSendCommandProcedure,
+			connect.WithSchema(teamXMethods.ByName("SendCommand")),
+			connect.WithClientOptions(opts...),
+		),
+		getCommandLog: connect.NewClient[proto.GetCommandLogRequest, proto.GetCommandLogResponse](
+			httpClient,
+			baseURL+TeamXGetCommandLogProcedure,
+			connect.WithSchema(teamXMethods.ByName("GetCommandLog")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -156,6 +174,8 @@ type teamXClient struct {
 	disconnectTerminal *connect.Client[proto.DisconnectTerminalRequest, proto.DisconnectTerminalResponse]
 	blockTerminal      *connect.Client[proto.BlockTerminalRequest, proto.BlockTerminalResponse]
 	unblockTerminal    *connect.Client[proto.UnblockTerminalRequest, proto.UnblockTerminalResponse]
+	sendCommand        *connect.Client[proto.SendCommandRequest, proto.SendCommandResponse]
+	getCommandLog      *connect.Client[proto.GetCommandLogRequest, proto.GetCommandLogResponse]
 }
 
 // Register calls teamx.proto.TeamX.Register.
@@ -203,6 +223,16 @@ func (c *teamXClient) UnblockTerminal(ctx context.Context, req *connect.Request[
 	return c.unblockTerminal.CallUnary(ctx, req)
 }
 
+// SendCommand calls teamx.proto.TeamX.SendCommand.
+func (c *teamXClient) SendCommand(ctx context.Context, req *connect.Request[proto.SendCommandRequest]) (*connect.Response[proto.SendCommandResponse], error) {
+	return c.sendCommand.CallUnary(ctx, req)
+}
+
+// GetCommandLog calls teamx.proto.TeamX.GetCommandLog.
+func (c *teamXClient) GetCommandLog(ctx context.Context, req *connect.Request[proto.GetCommandLogRequest]) (*connect.Response[proto.GetCommandLogResponse], error) {
+	return c.getCommandLog.CallUnary(ctx, req)
+}
+
 // TeamXHandler is an implementation of the teamx.proto.TeamX service.
 type TeamXHandler interface {
 	// Register performs a one-shot handshake: client → server.
@@ -223,6 +253,8 @@ type TeamXHandler interface {
 	DisconnectTerminal(context.Context, *connect.Request[proto.DisconnectTerminalRequest]) (*connect.Response[proto.DisconnectTerminalResponse], error)
 	BlockTerminal(context.Context, *connect.Request[proto.BlockTerminalRequest]) (*connect.Response[proto.BlockTerminalResponse], error)
 	UnblockTerminal(context.Context, *connect.Request[proto.UnblockTerminalRequest]) (*connect.Response[proto.UnblockTerminalResponse], error)
+	SendCommand(context.Context, *connect.Request[proto.SendCommandRequest]) (*connect.Response[proto.SendCommandResponse], error)
+	GetCommandLog(context.Context, *connect.Request[proto.GetCommandLogRequest]) (*connect.Response[proto.GetCommandLogResponse], error)
 }
 
 // NewTeamXHandler builds an HTTP handler from the service implementation. It returns the path on
@@ -286,6 +318,18 @@ func NewTeamXHandler(svc TeamXHandler, opts ...connect.HandlerOption) (string, h
 		connect.WithSchema(teamXMethods.ByName("UnblockTerminal")),
 		connect.WithHandlerOptions(opts...),
 	)
+	teamXSendCommandHandler := connect.NewUnaryHandler(
+		TeamXSendCommandProcedure,
+		svc.SendCommand,
+		connect.WithSchema(teamXMethods.ByName("SendCommand")),
+		connect.WithHandlerOptions(opts...),
+	)
+	teamXGetCommandLogHandler := connect.NewUnaryHandler(
+		TeamXGetCommandLogProcedure,
+		svc.GetCommandLog,
+		connect.WithSchema(teamXMethods.ByName("GetCommandLog")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/teamx.proto.TeamX/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TeamXRegisterProcedure:
@@ -306,6 +350,10 @@ func NewTeamXHandler(svc TeamXHandler, opts ...connect.HandlerOption) (string, h
 			teamXBlockTerminalHandler.ServeHTTP(w, r)
 		case TeamXUnblockTerminalProcedure:
 			teamXUnblockTerminalHandler.ServeHTTP(w, r)
+		case TeamXSendCommandProcedure:
+			teamXSendCommandHandler.ServeHTTP(w, r)
+		case TeamXGetCommandLogProcedure:
+			teamXGetCommandLogHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -349,4 +397,12 @@ func (UnimplementedTeamXHandler) BlockTerminal(context.Context, *connect.Request
 
 func (UnimplementedTeamXHandler) UnblockTerminal(context.Context, *connect.Request[proto.UnblockTerminalRequest]) (*connect.Response[proto.UnblockTerminalResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("teamx.proto.TeamX.UnblockTerminal is not implemented"))
+}
+
+func (UnimplementedTeamXHandler) SendCommand(context.Context, *connect.Request[proto.SendCommandRequest]) (*connect.Response[proto.SendCommandResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("teamx.proto.TeamX.SendCommand is not implemented"))
+}
+
+func (UnimplementedTeamXHandler) GetCommandLog(context.Context, *connect.Request[proto.GetCommandLogRequest]) (*connect.Response[proto.GetCommandLogResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("teamx.proto.TeamX.GetCommandLog is not implemented"))
 }

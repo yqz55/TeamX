@@ -250,8 +250,9 @@ func (c *Client) recvLoop(ctx context.Context, stream proto.TeamX_ChannelClient)
 			// Silence heartbeat acks in logs unless verbose.
 		case *proto.ServerMessage_Command:
 			log.Printf("[client] received command: id=%s type=%s",
-				payload.Command.GetCommandId(), payload.Command.GetType())
-			// Phase 5 will dispatch to command executor.
+				payload.Command.GetCommandId(), payload.Command.GetType().String())
+			// Dispatch to command executor (Phase 5).
+			c.dispatchCommand(ctx, stream, payload.Command)
 		default:
 			log.Printf("[client] unknown server message seq=%d", msg.Seq)
 		}

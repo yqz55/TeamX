@@ -78,6 +78,11 @@ type Store interface {
 	// UpdateCommandStatus updates only the status field (for Sent, Executing transitions).
 	UpdateCommandStatus(commandID, status string) error
 
+	// MarkCommandTimeout sets status=Timeout only if the current status is still
+	// non-terminal (Pending, Sent, Executing). Returns the number of rows affected
+	// (1 = marked timeout, 0 = already terminal — no-op).
+	MarkCommandTimeout(commandID string) error
+
 	// GetCommandLog returns command log entries for a device or session.
 	// deviceID takes precedence over sessionID. limit caps results; 0 means default (50).
 	GetCommandLog(deviceID, sessionID string, limit int) ([]*CommandLogEntry, error)

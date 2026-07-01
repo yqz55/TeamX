@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -21,6 +22,15 @@ func (c *Client) dispatchCommand(ctx context.Context, stream proto.TeamX_Channel
 
 	log.Printf("[executor] received: command_id=%s type=%s", commandID, cmdType.String())
 
+	// Panic isolation: a buggy handler must not crash the recvLoop.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[executor] PANIC in handler: command_id=%s type=%s panic=%v", commandID, cmdType.String(), r)
+			c.sendCommandResult(stream, commandID, "Failed", -1, "", "",
+				fmt.Sprintf("handler panic: %v", r), time.Now().Unix(), time.Now().Unix())
+		}
+	}()
+
 	// Send Executing status so the server knows we started.
 	c.sendCommandResult(stream, commandID, "Executing", 0, "", "", "",
 		time.Now().Unix(), 0)
@@ -31,6 +41,12 @@ func (c *Client) dispatchCommand(ctx context.Context, stream proto.TeamX_Channel
 
 	case proto.CommandType_COMMAND_TYPE_RUN_SCRIPT:
 		c.handleRunScript(ctx, stream, cmd)
+
+	case proto.CommandType_COMMAND_TYPE_RESTART:
+		c.handleRestart(stream, cmd)
+
+	case proto.CommandType_COMMAND_TYPE_SHUTDOWN:
+		c.handleShutdown(stream, cmd)
 
 	default:
 		c.sendCommandResult(stream, commandID, "Failed", -1, "", "",
@@ -147,6 +163,59 @@ func (c *Client) handleRunScript(ctx context.Context, stream proto.TeamX_Channel
 
 	c.sendCommandResult(stream, commandID, status, exitCode, string(stdout), stderr, "",
 		startedAt.Unix(), finishedAt.Unix())
+}
+
+// ---- Restart ---------------------------------------------------------------
+
+func (c *Client) handleRestart(stream proto.TeamX_ChannelClient, cmd *proto.Command) {
+	commandID := cmd.GetCommandId()
+	now := time.Now().Unix()
+
+	log.Printf("[executor] restart: command_id=%s — cancelling session to trigger reconnect", commandID)
+
+	c.sendCommandResult(stream, commandID, "Completed", 0, "restarting", "", "",
+		now, now)
+
+	// Give the result message time to reach the server before tearing down
+	// the stream. Without this, the server may see the stream close before
+	// processing the Completed status, leaving the command as Timeout.
+	time.Sleep(200 * time.Millisecond)
+
+	// Signal the Run loop to reconnect immediately (no backoff).
+	c.mu.Lock()
+	c.restartRequested = true
+	c.mu.Unlock()
+
+	// Cancel the session context to break the recv loop and trigger reconnect.
+	if c.cancelSession != nil {
+		c.cancelSession()
+	}
+}
+
+// ---- Shutdown --------------------------------------------------------------
+
+func (c *Client) handleShutdown(stream proto.TeamX_ChannelClient, cmd *proto.Command) {
+	commandID := cmd.GetCommandId()
+	now := time.Now().Unix()
+
+	log.Printf("[executor] shutdown: command_id=%s — exiting process", commandID)
+
+	c.sendCommandResult(stream, commandID, "Completed", 0, "shutting down", "", "",
+		now, now)
+
+	// Signal the Run loop to exit (not reconnect).
+	c.mu.Lock()
+	c.shutdownRequested = true
+	c.mu.Unlock()
+
+	// Cancel the session to cleanly close the current connection.
+	if c.cancelSession != nil {
+		c.cancelSession()
+	}
+
+	// Give the stream a moment to flush, then exit.
+	time.Sleep(100 * time.Millisecond)
+	os.Exit(0)
 }
 
 // ---- helpers ----------------------------------------------------------------

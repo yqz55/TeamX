@@ -118,6 +118,22 @@ func (g *Gateway) UnblockTerminal(ctx context.Context, req *connect.Request[prot
 	return connect.NewResponse(resp), nil
 }
 
+func (g *Gateway) SendCommand(ctx context.Context, req *connect.Request[proto.SendCommandRequest]) (*connect.Response[proto.SendCommandResponse], error) {
+	resp, err := proto.NewTeamXClient(g.grpcConn).SendCommand(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (g *Gateway) GetCommandLog(ctx context.Context, req *connect.Request[proto.GetCommandLogRequest]) (*connect.Response[proto.GetCommandLogResponse], error) {
+	resp, err := proto.NewTeamXClient(g.grpcConn).GetCommandLog(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp), nil
+}
+
 // =============================================================================
 // WebSocket Hub
 // =============================================================================

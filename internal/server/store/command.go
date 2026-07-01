@@ -74,6 +74,23 @@ func (s *sqliteStore) UpdateCommandStatus(commandID, status string) error {
 	return nil
 }
 
+// MarkCommandTimeout sets status=Timeout only when the current status is still
+// non-terminal. This prevents the timeout goroutine from overwriting a command
+// that already completed or failed before the deadline.
+func (s *sqliteStore) MarkCommandTimeout(commandID string) error {
+	const query = `
+	UPDATE command_logs
+	SET status = 'Timeout', error_message = 'command timed out',
+	    finished_at = ?
+	WHERE command_id = ? AND status IN ('Pending', 'Sent', 'Executing')
+	`
+	_, err := s.db.Exec(query, nowUTC(), commandID)
+	if err != nil {
+		return fmt.Errorf("store: mark command timeout %s: %w", commandID, err)
+	}
+	return nil
+}
+
 // GetCommandLog returns command log entries for a device or session.
 func (s *sqliteStore) GetCommandLog(deviceID, sessionID string, limit int) ([]*CommandLogEntry, error) {
 	if limit <= 0 || limit > 200 {

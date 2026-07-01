@@ -142,12 +142,15 @@ func (s *TeamXServer) commandConsumer(ctx context.Context, stream proto.TeamX_Ch
 }
 
 // watchCommandTimeout monitors a command and marks it Timeout if it hasn't
-// completed within the deadline.
+// completed within the deadline. Uses MarkCommandTimeout which is a no-op
+// when the command already reached a terminal state (Completed/Failed).
 func (s *TeamXServer) watchCommandTimeout(commandID string, timeout time.Duration) {
 	<-time.After(timeout)
+	if err := s.store.MarkCommandTimeout(commandID); err != nil {
+		log.Printf("[command] timeout mark failed: command_id=%s err=%v", commandID, err)
+		return
+	}
 	log.Printf("[command] timeout: command_id=%s", commandID)
-	_ = s.store.UpdateCommandResult(commandID, "Timeout", -1, "", "",
-		"command timed out", "", time.Now().UTC().Format(time.RFC3339))
 }
 
 // ---- GetCommandLog (Admin RPC) ---------------------------------------------

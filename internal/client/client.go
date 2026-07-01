@@ -61,7 +61,20 @@ type Client struct {
 	col   *collector.Collector   // hardware info collector
 	cache *collector.ReportCache // dedup cache for hardware reports
 
-	// Protects seq.
+	// cancelSession cancels the current session context to trigger a clean
+	// disconnect. Set by connect(), called by Restart/Shutdown handlers.
+	cancelSession context.CancelFunc
+
+	// restartRequested is set true by handleRestart. connect() checks it after
+	// the recv loop exits and returns nil (instead of the context error) so the
+	// Run loop reconnects immediately without backoff.
+	restartRequested bool
+
+	// shutdownRequested is set true by handleShutdown. Run() checks it and
+	// exits cleanly instead of reconnecting.
+	shutdownRequested bool
+
+	// Protects seq and the request flags above.
 	mu sync.Mutex
 }
 
@@ -80,11 +93,21 @@ func (c *Client) SysInfo() SysInfo {
 	return c.info
 }
 
-// Run is the main client loop. It blocks until the context is cancelled.
+// Run is the main client loop. It blocks until the context is cancelled
+// or a Shutdown command is received.
 func (c *Client) Run(ctx context.Context) error {
 	attempt := 0
 
 	for {
+		// Check shutdown before every reconnect cycle.
+		c.mu.Lock()
+		shutdown := c.shutdownRequested
+		c.mu.Unlock()
+		if shutdown {
+			log.Printf("[client] shutdown requested — exiting")
+			return nil
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -172,9 +195,11 @@ func (c *Client) connect(parentCtx context.Context) error {
 	log.Printf("[client] channel opened")
 
 	// Session-scoped context: cancelled when the stream breaks, which
-	// signals the heartbeat goroutine to stop.
+	// signals the heartbeat goroutine to stop. Also stored so command
+	// handlers can trigger a clean disconnect (Restart / Shutdown).
 	sessCtx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
+	c.cancelSession = cancel
 
 	// ---- Heartbeat goroutine ------------------------------------------------
 
@@ -194,6 +219,18 @@ func (c *Client) connect(parentCtx context.Context) error {
 	cancel()
 	<-hbDone
 	<-reportDone
+
+	// If the restart handler requested a reconnect, return nil so the Run loop
+	// reconnects immediately without backoff.
+	c.mu.Lock()
+	restart := c.restartRequested
+	c.restartRequested = false
+	c.mu.Unlock()
+	if restart {
+		log.Printf("[client] restart requested — reconnecting immediately")
+		return nil
+	}
+
 	return err
 }
 
